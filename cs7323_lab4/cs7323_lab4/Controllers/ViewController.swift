@@ -10,7 +10,10 @@ import UIKit
 import Vision
 
 class ViewController: UIViewController {
-
+    
+    // Main view for showing camera content.
+    @IBOutlet weak var previewView: UIView!
+    
     // AVCapture variables to hold sequence data
     var session: AVCaptureSession?
     var previewLayer: AVCaptureVideoPreviewLayer?
@@ -83,7 +86,8 @@ class ViewController: UIViewController {
         // create a detection request that processes an image and returns hand features
         // completion handler does not run immediately, it is run
         // after a hand is detected
-        let handDetectionRequest: VNDetectHumanHandPoseRequest = completionHandler: self.handDetectionCompletionHandler
+        let handDetectionRequest: VNDetectHumanHandPoseRequest =
+            VNDetectHumanHandPoseRequest(completionHandler: self.handDetectionCompletionHandler)
 
         // Save this detection request for later processing
         self.detectionRequests = [handDetectionRequest]
@@ -102,7 +106,7 @@ class ViewController: UIViewController {
         if error != nil {
             print("HandDetection error: \(String(describing: error)).")
         }
-
+        
         // see if we can get any hand features, this will fail if no hands detected
         // try to save the hand observations to a results vector
         guard
@@ -112,34 +116,56 @@ class ViewController: UIViewController {
         else {
             return
         }
-
+        
         if !results.isEmpty {
             print("Initial Hand found... setting up tracking.")
-
+            
         }
-
+        
         // if we got here, then a hand was detected and we have its features saved
         // The above hand detection was the most computational part of what we did
         // the remaining tracking only needs the results vector of hand features
         // so we can process it in the main queue (because we will us it to update UI)
         DispatchQueue.main.async {
             // Add the hand features to the tracking list
-            for observation in results {
-                let handTrackingRequest = VNTrackObjectRequest(
-                    detectedObjectObservation: observation)
-                // the array starts empty, but this will constantly add to it
-                // since on the main queue, there are no race conditions
-                // everything is from a single thread
-                // once we add this, it kicks off tracking in another function
-                self.trackingRequests?.append(handTrackingRequest)
-
-                // NOTE: if the initial hand detection is actually not a hand,
-                // then the app will continually mess up trying to perform tracking
+            // ORIG: for observation in results {
+            //         let handTrackingRequest = VNTrackObjectRequest(
+            //              detectedObjectObservation: observation)
+            
+            // Wilma added: from chatGPT
+            // Get the recognized points (like wrist and fingertips) for bounding box calculation
+            if let observation = results.first{
+                let wrist = try? observation.recognizedPoints(.all)[.wrist]
+                let indexTip = try? observation.recognizedPoints(.all)[.indexTip]
+                
+                // Create the bounding box
+                if let wrist = wrist, let indexTip = indexTip, wrist.confidence > 0.3, indexTip.confidence > 0.3 {
+                    // Calculate a bounding box around the hand
+                    let minX = min(wrist.location.x, indexTip.location.x)
+                    let minY = min(wrist.location.y, indexTip.location.y)
+                    let width = abs(wrist.location.x - indexTip.location.x)
+                    let height = abs(wrist.location.y - indexTip.location.y)
+                    let boundingBox = CGRect(x: minX, y: minY, width: width, height: height)
+                    
+                    // Convert this to a VNDetectedObjectObservation
+                    let handObservation = VNDetectedObjectObservation(boundingBox: boundingBox)
+                    
+                    
+                    // the array starts empty, but this will constantly add to it
+                    // since on the main queue, there are no race conditions
+                    // everything is from a single thread
+                    // once we add this, it kicks off tracking in another function
+                    
+                    let handTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: handObservation)
+                    
+                    self.trackingRequests?.append( handTrackingRequest)
+                    
+                    // NOTE: if the initial hand detection is actually not a hand,
+                    // then the app will continually mess up trying to perform tracking
+                }
             }
         }
-
     }
-
     // MARK: AVCaptureVideoDataOutputSampleBufferDelegate
     /// - Tag: PerformRequests
     // Handle delegate method callback on receiving a sample buffer.
@@ -602,7 +628,7 @@ extension UIViewController {
     func exifOrientationForCurrentDeviceOrientation()
         -> CGImagePropertyOrientation
     {
-        return exifOrientationForDeviceOrientation(UIDevice.current.orientation)
+       return exifOrientationForDeviceOrientation(UIDevice.current.orientation)
     }
 }
 
@@ -613,7 +639,8 @@ extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
     fileprivate func setupAVCaptureSession() -> AVCaptureSession? {
         let captureSession = AVCaptureSession()
         do {
-            let inputDevice = try self.configureFrontCamera(for: captureSession)
+            //let inputDevice = try self.configureFrontCamera(for: captureSession)
+            let inputDevice = try self.configureBackCamera(for: captureSession)
             self.configureVideoDataOutput(
                 for: inputDevice.device, resolution: inputDevice.resolution,
                 captureSession: captureSession)
@@ -666,12 +693,12 @@ extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
         return nil
     }
 
-    fileprivate func configureFrontCamera(for captureSession: AVCaptureSession)
+    fileprivate func configureBackCamera(for captureSession: AVCaptureSession)
         throws -> (device: AVCaptureDevice, resolution: CGSize)
     {
         let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera], mediaType: .video,
-            position: .front)
+            position: .back)
 
         if let device = deviceDiscoverySession.devices.first {
             if let deviceInput = try? AVCaptureDeviceInput(device: device) {
@@ -883,104 +910,104 @@ extension ViewController {
             x: rootLayerBounds.midX, y: rootLayerBounds.midY)
     }
 
-    fileprivate func addPoints(
-        in landmarkRegion: VNHandLandmarkRegion2D, to path: CGMutablePath,
-        applying affineTransform: CGAffineTransform,
-        closingWhenComplete closePath: Bool
-    ) {
-        let pointCount = landmarkRegion.pointCount
-        if pointCount > 1 {
-            let points: [CGPoint] = landmarkRegion.normalizedPoints
-            path.move(to: points[0], transform: affineTransform)
-            path.addLines(between: points, transform: affineTransform)
-            if closePath {
-                path.addLine(to: points[0], transform: affineTransform)
-                path.closeSubpath()
-            }
-        }
-    }
+//Wilma    fileprivate func addPoints(
+//        in landmarkRegion: VNHandLandmarkRegion2D, to path: CGMutablePath,
+//        applying affineTransform: CGAffineTransform,
+//        closingWhenComplete closePath: Bool
+//    ) {
+//        let pointCount = landmarkRegion.pointCount
+//        if pointCount > 1 {
+//            let points: [CGPoint] = landmarkRegion.normalizedPoints
+//            path.move(to: points[0], transform: affineTransform)
+//            path.addLines(between: points, transform: affineTransform)
+//            if closePath {
+//                path.addLine(to: points[0], transform: affineTransform)
+//                path.closeSubpath()
+//            }
+//        }
+//    }
 
-    fileprivate func addIndicators(
-        to handRectanglePath: CGMutablePath, handLandmarksPath: CGMutablePath,
-        for handObservation: VNHumanHandPoseObservation
-    ) {
-        let displaySize = self.captureDeviceResolution
+//Wilma:    fileprivate func addIndicators(
+//        to handRectanglePath: CGMutablePath, handLandmarksPath: CGMutablePath,
+//        for handObservation: VNHumanHandPoseObservation
+//    ) {
+//        let displaySize = self.captureDeviceResolution
+//
+//        let handBounds = VNImageRectForNormalizedRect(
+//            handObservation.boundingBox, Int(displaySize.width),
+//            Int(displaySize.height))
+//        handRectanglePath.addRect(handBounds)
+//
+//        if let landmarks = handObservation.landmarks {
+//            // Landmarks are relative to -- and normalized within --- hand bounds
+//            let affineTransform = CGAffineTransform(
+//                translationX: handBounds.origin.x, y: handBounds.origin.y
+//            )
+//            .scaledBy(x: handBounds.size.width, y: handBounds.size.height)
+//
+//            // Treat eyebrows and lines as open-ended regions when drawing paths.
+//            let openLandmarkRegions: [VNHandLandmarkRegion2D?] = [
+//                landmarks.leftEyebrow,
+//                landmarks.rightEyebrow,
+//                landmarks.handContour,
+//                landmarks.noseCrest,
+//                landmarks.medianLine,
+//            ]
+//            for openLandmarkRegion in openLandmarkRegions
+//            where openLandmarkRegion != nil {
+//                self.addPoints(
+//                    in: openLandmarkRegion!, to: handLandmarksPath,
+//                    applying: affineTransform, closingWhenComplete: false)
+//            }
+//
+//            // Draw eyes, lips, and nose as closed regions.
+//            let closedLandmarkRegions: [VNHandLandmarkRegion2D?] = [
+//                landmarks.leftEye,
+//                landmarks.rightEye,
+//                landmarks.outerLips,
+//                landmarks.innerLips,
+//                landmarks.nose,
+//            ]
+//            for closedLandmarkRegion in closedLandmarkRegions
+//            where closedLandmarkRegion != nil {
+//                self.addPoints(
+//                    in: closedLandmarkRegion!, to: handLandmarksPath,
+//                    applying: affineTransform, closingWhenComplete: true)
+//            }
+//        }
+//    }
 
-        let handBounds = VNImageRectForNormalizedRect(
-            handObservation.boundingBox, Int(displaySize.width),
-            Int(displaySize.height))
-        handRectanglePath.addRect(handBounds)
-
-        if let landmarks = handObservation.landmarks {
-            // Landmarks are relative to -- and normalized within --- hand bounds
-            let affineTransform = CGAffineTransform(
-                translationX: handBounds.origin.x, y: handBounds.origin.y
-            )
-            .scaledBy(x: handBounds.size.width, y: handBounds.size.height)
-
-            // Treat eyebrows and lines as open-ended regions when drawing paths.
-            let openLandmarkRegions: [VNHandLandmarkRegion2D?] = [
-                landmarks.leftEyebrow,
-                landmarks.rightEyebrow,
-                landmarks.handContour,
-                landmarks.noseCrest,
-                landmarks.medianLine,
-            ]
-            for openLandmarkRegion in openLandmarkRegions
-            where openLandmarkRegion != nil {
-                self.addPoints(
-                    in: openLandmarkRegion!, to: handLandmarksPath,
-                    applying: affineTransform, closingWhenComplete: false)
-            }
-
-            // Draw eyes, lips, and nose as closed regions.
-            let closedLandmarkRegions: [VNHandLandmarkRegion2D?] = [
-                landmarks.leftEye,
-                landmarks.rightEye,
-                landmarks.outerLips,
-                landmarks.innerLips,
-                landmarks.nose,
-            ]
-            for closedLandmarkRegion in closedLandmarkRegions
-            where closedLandmarkRegion != nil {
-                self.addPoints(
-                    in: closedLandmarkRegion!, to: handLandmarksPath,
-                    applying: affineTransform, closingWhenComplete: true)
-            }
-        }
-    }
-
-    /// - Tag: DrawPaths
-    fileprivate func drawHandObservations(
-        _ handObservations: [VNHumanHandPoseObservation]
-    ) {
-        guard
-            let handRectangleShapeLayer = self.detectedHandRectangleShapeLayer,
-            let handLandmarksShapeLayer = self.detectedHandLandmarksShapeLayer
-        else {
-            return
-        }
-
-        CATransaction.begin()
-
-        CATransaction.setValue(
-            NSNumber(value: true), forKey: kCATransactionDisableActions)
-
-        let handRectanglePath = CGMutablePath()
-        let handLandmarksPath = CGMutablePath()
-
-        for handObservation in handObservations {
-            self.addIndicators(
-                to: handRectanglePath,
-                handLandmarksPath: handLandmarksPath,
-                for: handObservation)
-        }
-
-        handRectangleShapeLayer.path = handRectanglePath
-        handLandmarksShapeLayer.path = handLandmarksPath
-
-        self.updateLayerGeometry()
-
-        CATransaction.commit()
-    }
+//Wilma:    /// - Tag: DrawPaths
+//    fileprivate func drawHandObservations(
+//        _ handObservations: [VNHumanHandPoseObservation]
+//    ) {
+//        guard
+//            let handRectangleShapeLayer = self.detectedHandRectangleShapeLayer,
+//            let handLandmarksShapeLayer = self.detectedHandLandmarksShapeLayer
+//        else {
+//            return
+//        }
+//
+//        CATransaction.begin()
+//
+//        CATransaction.setValue(
+//            NSNumber(value: true), forKey: kCATransactionDisableActions)
+//
+//        let handRectanglePath = CGMutablePath()
+//        let handLandmarksPath = CGMutablePath()
+//
+//        for handObservation in handObservations {
+//            self.addIndicators(
+//                to: handRectanglePath,
+//                handLandmarksPath: handLandmarksPath,
+//                for: handObservation)
+//        }
+//
+//        handRectangleShapeLayer.path = handRectanglePath
+//        handLandmarksShapeLayer.path = handLandmarksPath
+//
+//        self.updateLayerGeometry()
+//
+//        CATransaction.commit()
+//    }
 }
