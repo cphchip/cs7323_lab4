@@ -29,6 +29,9 @@ class ViewController: UIViewController {
     var detectionOverlayLayer: CALayer?
     var detectedHandRectangleShapeLayer: CAShapeLayer?
     var detectedHandLandmarksShapeLayer: CAShapeLayer?
+    
+    // Add a CAShapeLayer for the bounding box
+    private let boundingBoxLayer: CAShapeLayer = CAShapeLayer()
 
     // Vision requests
     private var detectionRequests: [VNDetectHumanHandPoseRequest]?
@@ -44,6 +47,9 @@ class ViewController: UIViewController {
 
         // setup video for high resolution, drop frames when busy, and front camera
         self.session = self.setupAVCaptureSession()
+        
+        // Add setup of BoundingBox Layer
+        self.setupBoundingBoxLayer()
 
         // setup the vision objects for (1) detection and (2) tracking
         self.prepareVisionRequest()
@@ -59,6 +65,13 @@ class ViewController: UIViewController {
         }
 
     }
+    // Add function to setup Bounding Box Layer
+    private func setupBoundingBoxLayer() {
+        boundingBoxLayer.strokeColor = UIColor.red.cgColor
+        boundingBoxLayer.lineWidth = 2.0
+        boundingBoxLayer.fillColor = UIColor.clear.cgColor
+        view.layer.addSublayer(boundingBoxLayer)
+       }
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -308,6 +321,16 @@ class ViewController: UIViewController {
                 if !trackingRequest.isLastFrame {
                     if observation.confidence > 0.3 {
                         trackingRequest.inputObservation = observation
+                        
+                        //Wilma: add for bounding box
+                        let boundingBox = trackingRequest.inputObservation.boundingBox
+                        
+                        // Update the bounding box layer
+                        DispatchQueue.main.async {
+                            //Convert Vision's bounding box to view coordinates
+                            let convertedBoundingBox = VNImageRectForNormalizedRect(boundingBox, Int(self.view.bounds.width), Int(self.view.bounds.height))
+                            self.drawBoundingBox(convertedBoundingBox)
+                        }
                     } else {
 
                         // once below thresh, make it last frame
@@ -325,6 +348,13 @@ class ViewController: UIViewController {
 
     }
 
+    func drawBoundingBox(_ boundingBox: CGRect) {
+        let path = UIBezierPath(rect: boundingBox)
+        boundingBoxLayer.path = path.cgPath
+    }
+
+    
+    
     func performLandmarkDetection(
         newTrackingRequests: [VNTrackObjectRequest], pixelBuffer: CVPixelBuffer,
         exifOrientation: CGImagePropertyOrientation,
