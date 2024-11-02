@@ -26,6 +26,7 @@ class ViewController: UIViewController {
     
     // Vision requests
     private var detectionRequests: [VNDetectFaceRectanglesRequest]?
+//    private var detectionRequests: [VNDetectHumanHandPoseRequest]?
     private var trackingRequests: [VNTrackObjectRequest]?
     private var handPoseRequest = VNDetectHumanHandPoseRequest()
     
@@ -34,6 +35,10 @@ class ViewController: UIViewController {
     // Define CAShapeLayer properties for fingertip markers
     private var thumbTipLayer = CAShapeLayer()
     private var indexTipLayer = CAShapeLayer()
+    private var middleTipLayer = CAShapeLayer()
+    private var ringTipLayer = CAShapeLayer()
+    private var littleTipLayer = CAShapeLayer()
+
     
     // MARK: UIViewController overrides
     
@@ -59,7 +64,7 @@ class ViewController: UIViewController {
     
     private func setupFingertipLayers() {
         // Configure layers for thumb and index finger tips
-        [thumbTipLayer, indexTipLayer].forEach { layer in
+        [thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer, littleTipLayer].forEach { layer in
             layer.fillColor = UIColor.red.cgColor
             layer.strokeColor = UIColor.clear.cgColor
             layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10) // Circle size
@@ -118,7 +123,10 @@ class ViewController: UIViewController {
             let results = faceDetectionRequest.results as? [VNFaceObservation] else {
                 return
         }
-        
+//        guard let handDetectionRequest = request as? VNDetectHumanHandPoseRequest,
+//              let results = handDetectionRequest.results as? [VNHumanObservation] else {
+//                return
+//        }
         if !results.isEmpty{
             print("Initial Face found... setting up tracking.")
             
@@ -131,11 +139,13 @@ class ViewController: UIViewController {
             // Add the face features to the tracking list
             for observation in results {
                 let faceTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
+//                let handTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
                 // the array starts empty, but this will constantly add to it
                 // since on the main queue, there are no race conditions
                 // everything is from a single thread
                 // once we add this, it kicks off tracking in another function
                 self.trackingRequests?.append(faceTrackingRequest)
+//                self.trackingRequest?.append(handTrackingRequest)
                 
                 // NOTE: if the initial face detection is actually not a face,
                 // then the app will continually mess up trying to perform tracking
@@ -214,6 +224,10 @@ class ViewController: UIViewController {
     func performInitialDetection(pixelBuffer:CVPixelBuffer, exifOrientation:CGImagePropertyOrientation, requestHandlerOptions:[VNImageOption: AnyObject]) {
         var thumbTip: CGPoint?
         var indexTip: CGPoint?
+        var middleTip: CGPoint?
+        var ringTip: CGPoint?
+        var littleTip: CGPoint?
+//        var palm: CGPoint?
         
         // create request
         let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
@@ -226,21 +240,21 @@ class ViewController: UIViewController {
                 return
             }
             
-//            if let detectRequests = self.detectionRequests{
-                // try to detect face and add it to tracking buffer
-//                try imageRequestHandler.perform(detectRequests)
-//                try imageRequestHandler.perform([handPoseRequest])
-//            }
-            
-//            guard let observation = handPoseRequest.results?.first else {
-//                return
-//            }
+
             // Get points for thumb and index finger.
             let thumbPoints = try observation.recognizedPoints(.thumb)
             let indexFingerPoints = try observation.recognizedPoints(.indexFinger)
+            let middleFingerPoints = try observation.recognizedPoints(.middleFinger)
+            let ringFingerPoints = try observation.recognizedPoints(.ringFinger)
+            let littleFingerPoints = try observation.recognizedPoints(.littleFinger)
+//            let palmPoints = try observation.recognizedPoints()
             // Look for tip points.
             guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.3,
-                  let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.3 else {
+                  let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.3,
+                  let middleTipPoint = middleFingerPoints[.middleTip], middleTipPoint.confidence > 0.3,
+                  let ringTipPoint = ringFingerPoints[.ringTip], ringTipPoint.confidence > 0.3,
+                  let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.3
+            else {
                 return
             }
 //            // Ignore low confidence points.
@@ -252,12 +266,25 @@ class ViewController: UIViewController {
                                y: (1 - thumbTipPoint.location.y) * previewView!.frame.height)
             indexTip = CGPoint(x: indexTipPoint.location.x * previewView!.frame.width,
                                y: (1 - indexTipPoint.location.y) * previewView!.frame.height)
+            middleTip = CGPoint(x: middleTipPoint.location.x * previewView!.frame.width,
+                               y: (1 - middleTipPoint.location.y) * previewView!.frame.height)
+            ringTip = CGPoint(x: ringTipPoint.location.x * previewView!.frame.width,
+                               y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
+            littleTip = CGPoint(x: littleTipPoint.location.x * previewView!.frame.width,
+                               y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
+            
             print("Thumb: ", thumbTip)
             print("Index: ", indexTip)
-            
+            print("Middle: ", middleTip)
+            print("Ring: ", ringTip)
+            print("Little: ", littleTip)
+
             DispatchQueue.main.async {
                 self.thumbTipLayer.position = thumbTip ?? .zero
                 self.indexTipLayer.position = indexTip ?? .zero
+                self.middleTipLayer.position = middleTip ?? .zero
+                self.ringTipLayer.position = ringTip ?? .zero
+                self.littleTipLayer.position = littleTip ?? .zero
             }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
