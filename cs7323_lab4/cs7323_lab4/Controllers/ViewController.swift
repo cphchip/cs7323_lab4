@@ -38,6 +38,8 @@ class ViewController: UIViewController {
     private var middleTipLayer = CAShapeLayer()
     private var ringTipLayer = CAShapeLayer()
     private var littleTipLayer = CAShapeLayer()
+    private var wristLayer = CAShapeLayer()
+
 
     
     // MARK: UIViewController overrides
@@ -64,7 +66,7 @@ class ViewController: UIViewController {
     
     private func setupFingertipLayers() {
         // Configure layers for thumb and index finger tips
-        [thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer, littleTipLayer].forEach { layer in
+        [thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer, littleTipLayer, wristLayer].forEach { layer in
             layer.fillColor = UIColor.red.cgColor
             layer.strokeColor = UIColor.clear.cgColor
             layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10) // Circle size
@@ -227,7 +229,7 @@ class ViewController: UIViewController {
         var middleTip: CGPoint?
         var ringTip: CGPoint?
         var littleTip: CGPoint?
-//        var palm: CGPoint?
+        var wristPoint: CGPoint?
         
         // create request
         let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
@@ -247,16 +249,19 @@ class ViewController: UIViewController {
             let middleFingerPoints = try observation.recognizedPoints(.middleFinger)
             let ringFingerPoints = try observation.recognizedPoints(.ringFinger)
             let littleFingerPoints = try observation.recognizedPoints(.littleFinger)
-//            let palmPoints = try observation.recognizedPoints()
+            let wristPoints = try observation.recognizedPoints(.all)[.wrist]
+
             // Look for tip points.
-            guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.3,
-                  let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.3,
-                  let middleTipPoint = middleFingerPoints[.middleTip], middleTipPoint.confidence > 0.3,
-                  let ringTipPoint = ringFingerPoints[.ringTip], ringTipPoint.confidence > 0.3,
-                  let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.3
+            guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.5,
+                  let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.5,
+                  let middleTipPoint = middleFingerPoints[.middleTip], middleTipPoint.confidence > 0.5,
+                  let ringTipPoint = ringFingerPoints[.ringTip], ringTipPoint.confidence > 0.5,
+                  let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.5
+//                  let wristPoint = wristPoint, wristPoint.confidence > 0.5
             else {
                 return
             }
+            
 //            // Ignore low confidence points.
 //            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
 //                return
@@ -272,12 +277,15 @@ class ViewController: UIViewController {
                                y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
             littleTip = CGPoint(x: littleTipPoint.location.x * previewView!.frame.width,
                                y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
+//            wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
+//                                 y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
             
             print("Thumb: ", thumbTip)
             print("Index: ", indexTip)
             print("Middle: ", middleTip)
             print("Ring: ", ringTip)
             print("Little: ", littleTip)
+            print("wrist: ", wristPoints)
 
             DispatchQueue.main.async {
                 self.thumbTipLayer.position = thumbTip ?? .zero
@@ -285,6 +293,7 @@ class ViewController: UIViewController {
                 self.middleTipLayer.position = middleTip ?? .zero
                 self.ringTipLayer.position = ringTip ?? .zero
                 self.littleTipLayer.position = littleTip ?? .zero
+                self.wristLayer.position = wristPoint ?? .zero
             }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
