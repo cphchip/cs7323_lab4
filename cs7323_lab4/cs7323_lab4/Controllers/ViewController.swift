@@ -224,8 +224,6 @@ class ViewController: UIViewController {
         var littleTip: CGPoint?
         var wristPoint: CGPoint?
         
-        //var boundingRect: CGRect?
-        
         // create request
         let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
                                                         orientation: exifOrientation,
@@ -292,19 +290,18 @@ class ViewController: UIViewController {
                 self.littleTipLayer.position = littleTip ?? .zero
                 self.wristLayer.position = wristPoint ?? .zero
                 
-                //self.boundingBoxLayer.frame = boundingRect ?? .zero
-                
-                //Wilma added for bounding box
+                //Get Bounding box
                 // Get all points in the hand
                 guard let allPoints = try? observation.recognizedPoints(.all) else {
                     print("Error getting allPoints in obervation.recognizedPoints(.all)")
                     return }
                 
                 //Calculate bounding rectangle
-                // Find min and max x and y to create a bounding rectangle
+                // Extract x coord and y coord from all points.
                 let xCoordinates = allPoints.values.map { $0.location.x }
                 let yCoordinates = allPoints.values.map { $0.location.y }
                 
+                // Find min and max x and y to create a bounding rectangle
                 if let minX = xCoordinates.min(),
                    let maxX = xCoordinates.max(),
                    let minY = yCoordinates.min(),
@@ -313,8 +310,6 @@ class ViewController: UIViewController {
                     // Use `boundingRect` as the hand's bounding box
                     self.drawBoundingBox(boundingBox: boundingRect)
                 }
-                //end Wilma added
-        
             }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
@@ -334,12 +329,6 @@ class ViewController: UIViewController {
         )
        
         // Create a shape layer
-//        let rectangleLayer = CAShapeLayer()
-//        rectangleLayer.path = UIBezierPath(rect: scaledRect).cgPath
-//        rectangleLayer.strokeColor = UIColor.red.cgColor
-//        rectangleLayer.fillColor = UIColor.clear.cgColor
-//        rectangleLayer.lineWidth = 2.0
-        
         boundingBoxLayer.path = UIBezierPath(rect: scaledRect).cgPath
         boundingBoxLayer.strokeColor = UIColor.red.cgColor
         boundingBoxLayer.fillColor = UIColor.clear.cgColor
@@ -454,7 +443,7 @@ extension ViewController:AVCaptureVideoDataOutputSampleBufferDelegate{
     fileprivate func setupAVCaptureSession() -> AVCaptureSession? {
         let captureSession = AVCaptureSession()
         do {
-            let inputDevice = try self.configureFrontCamera(for: captureSession)
+            let inputDevice = try self.configureBackCamera(for: captureSession)
             self.configureVideoDataOutput(for: inputDevice.device, resolution: inputDevice.resolution, captureSession: captureSession)
             self.designatePreviewLayer(for: captureSession)
             return captureSession
@@ -495,8 +484,8 @@ extension ViewController:AVCaptureVideoDataOutputSampleBufferDelegate{
         return nil
     }
     
-    fileprivate func configureFrontCamera(for captureSession: AVCaptureSession) throws -> (device: AVCaptureDevice, resolution: CGSize) {
-        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .front)
+    fileprivate func configureBackCamera(for captureSession: AVCaptureSession) throws -> (device: AVCaptureDevice, resolution: CGSize) {
+        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .back)
         
         if let device = deviceDiscoverySession.devices.first {
             if let deviceInput = try? AVCaptureDeviceInput(device: device) {
