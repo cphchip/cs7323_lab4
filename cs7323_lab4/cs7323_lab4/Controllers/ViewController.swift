@@ -24,13 +24,16 @@ class ViewController: UIViewController {
     var captureDevice: AVCaptureDevice?
     var captureDeviceResolution: CGSize = CGSize()
     
-    
     // Vision requests
     private var detectionRequests: [VNDetectFaceRectanglesRequest]?
     private var trackingRequests: [VNTrackObjectRequest]?
     private var handPoseRequest = VNDetectHumanHandPoseRequest()
     
     lazy var sequenceRequestHandler = VNSequenceRequestHandler()
+    
+    // Define CAShapeLayer properties for fingertip markers
+    private var thumbTipLayer = CAShapeLayer()
+    private var indexTipLayer = CAShapeLayer()
     
     // MARK: UIViewController overrides
     
@@ -48,6 +51,22 @@ class ViewController: UIViewController {
         
         // Limit to one hand
         handPoseRequest.maximumHandCount = 1
+        
+        // Configure CAShapeLayers
+        setupFingertipLayers()
+    }
+    
+    
+    private func setupFingertipLayers() {
+        // Configure layers for thumb and index finger tips
+        [thumbTipLayer, indexTipLayer].forEach { layer in
+            layer.fillColor = UIColor.red.cgColor
+            layer.strokeColor = UIColor.clear.cgColor
+            layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10) // Circle size
+            layer.cornerRadius = 5 // Half of the width/height for a circle
+            layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
+            previewView?.layer.addSublayer(layer)
+        }
     }
     
     override func didReceiveMemoryWarning() {
@@ -106,8 +125,6 @@ class ViewController: UIViewController {
             
         }
         
-        // if we got here, then a face was detected and we have its features saved
-        // The above face detection was the most computational part of what we did
         // the remaining tracking only needs the results vector of face features
         // so we can process it in the main queue (because we will us it to update UI)
         DispatchQueue.main.async {
@@ -158,8 +175,6 @@ class ViewController: UIViewController {
             return
         }
         
-        
-        
         // check to see if the tracking request is empty (no face currently detected)
         // if it is empty,
         if requests.isEmpty{
@@ -192,12 +207,6 @@ class ViewController: UIViewController {
                 return
             }
         }
-        
-        // if we made it here, then we do have valid tracking
-        //  of the initially detected face!!
-            
-        
-        
     }
     
     // functionality to run the image detection on pixel buffer
@@ -212,30 +221,44 @@ class ViewController: UIViewController {
                                                         options: requestHandlerOptions)
         
         do {
-            if let detectRequests = self.detectionRequests{
-                // try to detect face and add it to tracking buffer
-//                try imageRequestHandler.perform(detectRequests)
-                try imageRequestHandler.perform([handPoseRequest])
-            }
+            try imageRequestHandler.perform([handPoseRequest])
             guard let observation = handPoseRequest.results?.first else {
                 return
             }
+            
+//            if let detectRequests = self.detectionRequests{
+                // try to detect face and add it to tracking buffer
+//                try imageRequestHandler.perform(detectRequests)
+//                try imageRequestHandler.perform([handPoseRequest])
+//            }
+            
+//            guard let observation = handPoseRequest.results?.first else {
+//                return
+//            }
             // Get points for thumb and index finger.
             let thumbPoints = try observation.recognizedPoints(.thumb)
             let indexFingerPoints = try observation.recognizedPoints(.indexFinger)
             // Look for tip points.
-            guard let thumbTipPoint = thumbPoints[.thumbTip], let indexTipPoint = indexFingerPoints[.indexTip] else {
+            guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.3,
+                  let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.3 else {
                 return
             }
-            // Ignore low confidence points.
-            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
-                return
-            }
+//            // Ignore low confidence points.
+//            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
+//                return
+//            }
             // Convert points from Vision coordinates to AVFoundation coordinates.
-            thumbTip = CGPoint(x: thumbTipPoint.location.x, y: 1 - thumbTipPoint.location.y)
-            indexTip = CGPoint(x: indexTipPoint.location.x, y: 1 - indexTipPoint.location.y)
+            thumbTip = CGPoint(x: thumbTipPoint.location.x * previewView!.frame.width,
+                               y: (1 - thumbTipPoint.location.y) * previewView!.frame.height)
+            indexTip = CGPoint(x: indexTipPoint.location.x * previewView!.frame.width,
+                               y: (1 - indexTipPoint.location.y) * previewView!.frame.height)
             print("Thumb: ", thumbTip)
             print("Index: ", indexTip)
+            
+            DispatchQueue.main.async {
+                self.thumbTipLayer.position = thumbTip ?? .zero
+                self.indexTipLayer.position = indexTip ?? .zero
+            }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
         }
