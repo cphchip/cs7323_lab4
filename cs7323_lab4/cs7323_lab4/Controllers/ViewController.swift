@@ -41,7 +41,6 @@ class ViewController: UIViewController {
     
 
     // MARK: UIViewController overrides
-
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -65,6 +64,8 @@ class ViewController: UIViewController {
         }
 
     }
+    
+    
     // Add function to setup Bounding Box Layer
     private func setupBoundingBoxLayer() {
         boundingBoxLayer.strokeColor = UIColor.red.cgColor
@@ -82,6 +83,7 @@ class ViewController: UIViewController {
         return .portrait
     }
 
+    
     // Ensure that the interface stays locked in Portrait.
     override var preferredInterfaceOrientationForPresentation:
         UIInterfaceOrientation
@@ -89,8 +91,8 @@ class ViewController: UIViewController {
         return .portrait
     }
 
+    
     // MARK: Performing Vision Requests
-
     /// - Tag: WriteCompletionHandler
     fileprivate func prepareVisionRequest() {
 
@@ -111,6 +113,7 @@ class ViewController: UIViewController {
         // setup drawing layers for showing output of hand detection
         self.setupVisionDrawingLayers()
     }
+    
 
     // define behavior for when we detect a hand
     // MARK: Need to update this for hand...'humanHandDetection?'
@@ -122,59 +125,37 @@ class ViewController: UIViewController {
         
         // see if we can get any hand features, this will fail if no hands detected
         // try to save the hand observations to a results vector
-        guard
-            let handDetectionRequest = request
-                as? VNDetectHumanHandPoseRequest,
-            let results = handDetectionRequest.results
+        guard let handDetectionRequest = request as? VNDetectHumanHandPoseRequest,
+              let results = handDetectionRequest.results as? [VNHumanHandPoseObservation]
         else {
             return
         }
         
         if !results.isEmpty {
             print("Initial Hand found... setting up tracking.")
-            
         }
         
         // if we got here, then a hand was detected and we have its features saved
         // The above hand detection was the most computational part of what we did
         // the remaining tracking only needs the results vector of hand features
         // so we can process it in the main queue (because we will us it to update UI)
-        DispatchQueue.main.async {
-            // Add the hand features to the tracking list
-            // ORIG: for observation in results {
-            //         let handTrackingRequest = VNTrackObjectRequest(
-            //              detectedObjectObservation: observation)
+        DispatchQueue.main.async
+        {
+            print("Hand pose detected. Setting up tracking.")
             
-            // Wilma added: from chatGPT
-            // Get the recognized points (like wrist and fingertips) for bounding box calculation
-            if let observation = results.first{
-                let wrist = try? observation.recognizedPoints(.all)[.wrist]
-                let indexTip = try? observation.recognizedPoints(.all)[.indexTip]
+            for observation in results
+            {
+                // Get the joint locations from the hand pose observation
+//                let recognizedPoints = try? observation.recognizedPoints(forGroupKey: .all)
+                let thumbPoints = try observation.recognizedPoints(forGroupKey: .handLandmarkRegionKeyThu mb)
+                let indexFingerPoints = try observation.recognizedPoints(forGroupKey: .handLandmarkRegionKeyIndexFinger)
+
                 
-                // Create the bounding box
-                if let wrist = wrist, let indexTip = indexTip, wrist.confidence > 0.3, indexTip.confidence > 0.3 {
-                    // Calculate a bounding box around the hand
-                    let minX = min(wrist.location.x, indexTip.location.x)
-                    let minY = min(wrist.location.y, indexTip.location.y)
-                    let width = abs(wrist.location.x - indexTip.location.x)
-                    let height = abs(wrist.location.y - indexTip.location.y)
-                    let boundingBox = CGRect(x: minX, y: minY, width: width, height: height)
-                    
-                    // Convert this to a VNDetectedObjectObservation
-                    let handObservation = VNDetectedObjectObservation(boundingBox: boundingBox)
-                    
-                    
-                    // the array starts empty, but this will constantly add to it
-                    // since on the main queue, there are no race conditions
-                    // everything is from a single thread
-                    // once we add this, it kicks off tracking in another function
-                    
-                    let handTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: handObservation)
-                    
-                    self.trackingRequests?.append( handTrackingRequest)
-                    
-                    // NOTE: if the initial hand detection is actually not a hand,
-                    // then the app will continually mess up trying to perform tracking
+                // Accessing the index finger tip using VNHumanHandPoseObservation.JointName
+                if let indexFingerTip = recognizedPoints?[VNHumanHandPoseObservation.JointName.indexTip], indexFingerTip.confidence > 0.5 {
+                    let observation = VNDetectedObjectObservation(boundingBox: indexFingerTip.location)
+                    let trackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
+                    self.trackingRequests?.append(trackingRequest)
                 }
             }
         }
@@ -226,10 +207,9 @@ class ViewController: UIViewController {
             // the initial detection takes some time to perform
             // so we special case it here
 
-            self.performInitialDetection(
-                pixelBuffer: pixelBuffer,
-                exifOrientation: exifOrientation,
-                requestHandlerOptions: requestHandlerOptions)
+            self.performInitialDetection(pixelBuffer: pixelBuffer,
+                                         exifOrientation: exifOrientation,
+                                         requestHandlerOptions: requestHandlerOptions)
 
             return  // just perform the initial request
         }
@@ -246,7 +226,6 @@ class ViewController: UIViewController {
         // the function above will empty out all the elements
         // in our tracking if nothing is high confidence in the output
         if let newTrackingRequests = self.trackingRequests {
-
             if newTrackingRequests.isEmpty {
                 // Nothing was high enough confidence to track, just abort.
                 print("Hand object lost, resetting detection...")
@@ -266,7 +245,8 @@ class ViewController: UIViewController {
     // functionality to run the image detection on pixel buffer
     // This is an involved computation, so beware of running too often
     func performInitialDetection(
-        pixelBuffer: CVPixelBuffer, exifOrientation: CGImagePropertyOrientation,
+        pixelBuffer: CVPixelBuffer,
+        exifOrientation: CGImagePropertyOrientation,
         requestHandlerOptions: [VNImageOption: AnyObject]
     ) {
         // create request
