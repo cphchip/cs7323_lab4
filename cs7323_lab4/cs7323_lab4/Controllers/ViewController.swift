@@ -39,6 +39,8 @@ class ViewController: UIViewController {
     private var ringTipLayer = CAShapeLayer()
     private var littleTipLayer = CAShapeLayer()
     private var wristLayer = CAShapeLayer()
+    
+    private var boundingBoxLayer = CAShapeLayer()
 
 
     
@@ -131,8 +133,6 @@ class ViewController: UIViewController {
 //        }
         if !results.isEmpty{
             print("Initial Face found... setting up tracking.")
-            
-            
         }
         
         // the remaining tracking only needs the results vector of face features
@@ -153,10 +153,7 @@ class ViewController: UIViewController {
                 // then the app will continually mess up trying to perform tracking
             }
         }
-        
     }
-    
-    
     // MARK: AVCaptureVideoDataOutputSampleBufferDelegate
     /// - Tag: PerformRequests
     // Handle delegate method callback on receiving a sample buffer.
@@ -178,7 +175,6 @@ class ViewController: UIViewController {
             print("Failed to obtain a CVPixelBuffer for the current output frame.")
             return
         }
-        
         // get portrait orientation for UI
         let exifOrientation = self.exifOrientationForCurrentDeviceOrientation()
         
@@ -203,12 +199,9 @@ class ViewController: UIViewController {
         
         // if tracking was not empty, it means we have detected a face very recently
         // so we can process the sequence of tracking face features
-        
         self.performTracking(requests: requests,
                              pixelBuffer: pixelBuffer,
                              exifOrientation: exifOrientation)
-        
-        
         // if there are no valid observations, then this will be empty
         // the function above will empty out all the elements
         // in our tracking if nothing is high confidence in the output
@@ -231,6 +224,8 @@ class ViewController: UIViewController {
         var littleTip: CGPoint?
         var wristPoint: CGPoint?
         
+        //var boundingRect: CGRect?
+        
         // create request
         let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
                                                         orientation: exifOrientation,
@@ -242,7 +237,7 @@ class ViewController: UIViewController {
                 return
             }
             
-
+            
             // Get points for thumb and index finger.
             let thumbPoints = try observation.recognizedPoints(.thumb)
             let indexFingerPoints = try observation.recognizedPoints(.indexFinger)
@@ -250,35 +245,35 @@ class ViewController: UIViewController {
             let ringFingerPoints = try observation.recognizedPoints(.ringFinger)
             let littleFingerPoints = try observation.recognizedPoints(.littleFinger)
             let wristPoints = try observation.recognizedPoints(.all)[.wrist]
-
+            
             // Look for tip points.
             guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.5,
                   let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.5,
                   let middleTipPoint = middleFingerPoints[.middleTip], middleTipPoint.confidence > 0.5,
                   let ringTipPoint = ringFingerPoints[.ringTip], ringTipPoint.confidence > 0.5,
                   let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.5
-//                  let wristPoint = wristPoint, wristPoint.confidence > 0.5
+                    //                  let wristPoint = wristPoint, wristPoint.confidence > 0.5
             else {
                 return
             }
             
-//            // Ignore low confidence points.
-//            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
-//                return
-//            }
+            //            // Ignore low confidence points.
+            //            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
+            //                return
+            //            }
             // Convert points from Vision coordinates to AVFoundation coordinates.
             thumbTip = CGPoint(x: thumbTipPoint.location.x * previewView!.frame.width,
                                y: (1 - thumbTipPoint.location.y) * previewView!.frame.height)
             indexTip = CGPoint(x: indexTipPoint.location.x * previewView!.frame.width,
                                y: (1 - indexTipPoint.location.y) * previewView!.frame.height)
             middleTip = CGPoint(x: middleTipPoint.location.x * previewView!.frame.width,
-                               y: (1 - middleTipPoint.location.y) * previewView!.frame.height)
+                                y: (1 - middleTipPoint.location.y) * previewView!.frame.height)
             ringTip = CGPoint(x: ringTipPoint.location.x * previewView!.frame.width,
-                               y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
+                              y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
             littleTip = CGPoint(x: littleTipPoint.location.x * previewView!.frame.width,
-                               y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
-//            wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
-//                                 y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
+                                y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
+            //            wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
+            //                                 y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
             
             print("Thumb: ", thumbTip)
             print("Index: ", indexTip)
@@ -286,7 +281,9 @@ class ViewController: UIViewController {
             print("Ring: ", ringTip)
             print("Little: ", littleTip)
             print("wrist: ", wristPoints)
+            
 
+            
             DispatchQueue.main.async {
                 self.thumbTipLayer.position = thumbTip ?? .zero
                 self.indexTipLayer.position = indexTip ?? .zero
@@ -294,11 +291,64 @@ class ViewController: UIViewController {
                 self.ringTipLayer.position = ringTip ?? .zero
                 self.littleTipLayer.position = littleTip ?? .zero
                 self.wristLayer.position = wristPoint ?? .zero
+                
+                //self.boundingBoxLayer.frame = boundingRect ?? .zero
+                
+                //Wilma added for bounding box
+                // Get all points in the hand
+                guard let allPoints = try? observation.recognizedPoints(.all) else {
+                    print("Error getting allPoints in obervation.recognizedPoints(.all)")
+                    return }
+                
+                //Calculate bounding rectangle
+                // Find min and max x and y to create a bounding rectangle
+                let xCoordinates = allPoints.values.map { $0.location.x }
+                let yCoordinates = allPoints.values.map { $0.location.y }
+                
+                if let minX = xCoordinates.min(),
+                   let maxX = xCoordinates.max(),
+                   let minY = yCoordinates.min(),
+                   let maxY = yCoordinates.max() {
+                    let boundingRect = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+                    // Use `boundingRect` as the hand's bounding box
+                    self.drawBoundingBox(boundingBox: boundingRect)
+                }
+                //end Wilma added
+        
             }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
         }
     }
+    
+    // Wilma added draw bounding box
+    func drawBoundingBox(boundingBox: CGRect) {
+        // Convert bounding rectangle to the view's coordinate system
+        let viewWidth = view.bounds.width
+        let viewHeight = view.bounds.height
+        let scaledRect = CGRect(
+            x: boundingBox.origin.x * viewWidth,
+            y: (1 - boundingBox.origin.y) * viewHeight - boundingBox.height * viewHeight,
+            width: boundingBox.width * viewWidth,
+            height: boundingBox.height * viewHeight
+        )
+       
+        // Create a shape layer
+//        let rectangleLayer = CAShapeLayer()
+//        rectangleLayer.path = UIBezierPath(rect: scaledRect).cgPath
+//        rectangleLayer.strokeColor = UIColor.red.cgColor
+//        rectangleLayer.fillColor = UIColor.clear.cgColor
+//        rectangleLayer.lineWidth = 2.0
+        
+        boundingBoxLayer.path = UIBezierPath(rect: scaledRect).cgPath
+        boundingBoxLayer.strokeColor = UIColor.red.cgColor
+        boundingBoxLayer.fillColor = UIColor.clear.cgColor
+        boundingBoxLayer.lineWidth = 2.0
+        
+        // Add the shape layer to the view
+        view.layer.addSublayer(boundingBoxLayer)
+    }
+    // end Wilma added draw bounding box
     
     
     // this function performs all the tracking of the face sequence
@@ -400,8 +450,6 @@ extension UIViewController{
 
 // MARK: Extension for AVCapture Setup
 extension ViewController:AVCaptureVideoDataOutputSampleBufferDelegate{
-    
-    
     /// - Tag: CreateCaptureSession
     fileprivate func setupAVCaptureSession() -> AVCaptureSession? {
         let captureSession = AVCaptureSession()
