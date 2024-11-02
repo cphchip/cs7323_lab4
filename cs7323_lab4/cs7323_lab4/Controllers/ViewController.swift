@@ -32,6 +32,13 @@ class ViewController: UIViewController {
     
     // Add a CAShapeLayer for the bounding box
     private let boundingBoxLayer: CAShapeLayer = CAShapeLayer()
+    
+    // Add CAShapeLayers for fingers
+    private let thumbTipLayer = CAShapeLayer()
+    private let indexTipLayer = CAShapeLayer()
+    private let middleTipLayer = CAShapeLayer()
+    private let ringTipLayer = CAShapeLayer()
+    private let littleTipLayer = CAShapeLayer()
 
     // Vision requests
     private var detectionRequests: [VNDetectHumanHandPoseRequest]?
@@ -152,7 +159,8 @@ class ViewController: UIViewController {
                 let indexTip = try? observation.recognizedPoints(.all)[.indexTip]
                 
                 // Create the bounding box
-                if let wrist = wrist, let indexTip = indexTip, wrist.confidence > 0.3, indexTip.confidence > 0.3 {
+                //if let wrist = wrist, let indexTip = indexTip, wrist.confidence > 0.3, indexTip.confidence > 0.3 {
+                if let wrist = wrist, let indexTip = indexTip {
                     // Calculate a bounding box around the hand
                     let minX = min(wrist.location.x, indexTip.location.x)
                     let minY = min(wrist.location.y, indexTip.location.y)
@@ -329,7 +337,7 @@ class ViewController: UIViewController {
                         DispatchQueue.main.async {
                             //Convert Vision's bounding box to view coordinates
                             let convertedBoundingBox = VNImageRectForNormalizedRect(boundingBox, Int(self.view.bounds.width), Int(self.view.bounds.height))
-                            self.drawBoundingBox(convertedBoundingBox)
+                            //self.drawBoundingBox(convertedBoundingBox)
                         }
                     } else {
 
@@ -551,6 +559,48 @@ class ViewController: UIViewController {
             let results = landmarksRequest.results
         else {
             return
+        }
+
+        // Assuming `results` contains the hand pose observations from `VNDetectHumanHandPoseRequest`
+        if let results = landmarksRequest.results, let handObservation = results.first {
+            do {
+                // Access recognized points (landmarks) for different fingers
+                let thumbPoints = try handObservation.recognizedPoints(.thumb)
+                let indexFingerPoints = try handObservation.recognizedPoints(.indexFinger)
+                let middleFingerPoints = try handObservation.recognizedPoints(.middleFinger)
+                let ringFingerPoints = try handObservation.recognizedPoints(.ringFinger)
+                let littleFingerPoints = try handObservation.recognizedPoints(.littleFinger)
+                
+                // Each dictionary contains points like .tip, .dip, .pip, .mcp, etc.
+                if let thumbTip = thumbPoints[.thumbTip],
+                   let indexTip = indexFingerPoints[.indexTip],
+                   let middleTip = middleFingerPoints[.middleTip],
+                   let ringTip = ringFingerPoints[.ringTip],
+                   let littleTip = littleFingerPoints[.littleTip] {
+
+                    // Ensure points are confidently detected
+                    if thumbTip.confidence > 0.3, indexTip.confidence > 0.3,
+                       middleTip.confidence > 0.3, ringTip.confidence > 0.3,
+                       littleTip.confidence > 0.3 {
+
+                        // Convert these points to view coordinates if needed
+                        let thumbTipLocation = thumbTip.location
+                        let indexTipLocation = indexTip.location
+                        let middleTipLocation = middleTip.location
+                        let ringTipLocation = ringTip.location
+                        let littleTipLocation = littleTip.location
+                        
+                        // Here, you can add these points to a drawing layer or use them to perform gestures detection
+                        print("Thumb Tip: \(thumbTipLocation)")
+                        print("Index Tip: \(indexTipLocation)")
+                        print("Middle Tip: \(middleTipLocation)")
+                        print("Ring Tip: \(ringTipLocation)")
+                        print("Little Tip: \(littleTipLocation)")
+                    }
+                }
+            } catch {
+                print("Error accessing hand landmarks: \(error)")
+            }
         }
 
 //        if let handObservation = results.first {
