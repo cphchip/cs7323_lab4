@@ -242,7 +242,8 @@ class ViewController: UIViewController {
             let middleFingerPoints = try observation.recognizedPoints(.middleFinger)
             let ringFingerPoints = try observation.recognizedPoints(.ringFinger)
             let littleFingerPoints = try observation.recognizedPoints(.littleFinger)
-            let wristPoints = try observation.recognizedPoints(.all)[.wrist]
+            //let wristPoints = try observation.recognizedPoints(.all)[.wrist]
+            let wristPoints = try observation.recognizedPoint(.wrist)
             
             // Look for tip points.
             guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.5,
@@ -250,7 +251,8 @@ class ViewController: UIViewController {
                   let middleTipPoint = middleFingerPoints[.middleTip], middleTipPoint.confidence > 0.5,
                   let ringTipPoint = ringFingerPoints[.ringTip], ringTipPoint.confidence > 0.5,
                   let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.5
-                    //                  let wristPoint = wristPoint, wristPoint.confidence > 0.5
+                  //let wristPoint = wristPoint, wristPoint.confidence > 0.5
+                  //let wristPoints = wristPoint
             else {
                 return
             }
@@ -270,8 +272,8 @@ class ViewController: UIViewController {
                               y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
             littleTip = CGPoint(x: littleTipPoint.location.x * previewView!.frame.width,
                                 y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
-            //            wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
-            //                                 y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
+            wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
+                                             y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
             
             print("Thumb: ", thumbTip)
             print("Index: ", indexTip)
