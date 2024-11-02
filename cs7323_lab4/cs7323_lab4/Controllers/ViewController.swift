@@ -245,6 +245,7 @@ class ViewController: UIViewController {
             //let wristPoints = try observation.recognizedPoints(.all)[.wrist]
             let wristPoints = try observation.recognizedPoint(.wrist)
             
+            
             // Look for tip points.
             guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.5,
                   let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.5,
@@ -261,16 +262,28 @@ class ViewController: UIViewController {
             //            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
             //                return
             //            }
+            
+            // Determine if the current camera is front or back
+            // If back Camera is used, invert the x coord's
+            let isBackCamera = (captureDevice?.position == .back)
+                // Adjust the x coordinates
+            let adjustedThumbTipX  =  isBackCamera ? (1 - thumbTipPoint.location.x) : thumbTipPoint.location.x
+            let adjustedIndexTipX  =  isBackCamera ? (1 - indexTipPoint.location.x) : indexTipPoint.location.x
+            let adjustedMiddleTipX =  isBackCamera ? (1 - middleTipPoint.location.x) : middleTipPoint.location.x
+            let adjustedRingTipX   =  isBackCamera ? (1 - ringTipPoint.location.x) : ringTipPoint.location.x
+            let adjustedLittleTipX =  isBackCamera ? (1 - littleTipPoint.location.x) : littleTipPoint.location.x
+            
+            
             // Convert points from Vision coordinates to AVFoundation coordinates.
-            thumbTip = CGPoint(x: thumbTipPoint.location.x * previewView!.frame.width,
+            thumbTip = CGPoint(x: adjustedThumbTipX * previewView!.frame.width,
                                y: (1 - thumbTipPoint.location.y) * previewView!.frame.height)
-            indexTip = CGPoint(x: indexTipPoint.location.x * previewView!.frame.width,
+            indexTip = CGPoint(x: adjustedIndexTipX * previewView!.frame.width,
                                y: (1 - indexTipPoint.location.y) * previewView!.frame.height)
-            middleTip = CGPoint(x: middleTipPoint.location.x * previewView!.frame.width,
+            middleTip = CGPoint(x: adjustedMiddleTipX * previewView!.frame.width,
                                 y: (1 - middleTipPoint.location.y) * previewView!.frame.height)
-            ringTip = CGPoint(x: ringTipPoint.location.x * previewView!.frame.width,
+            ringTip = CGPoint(x: adjustedRingTipX * previewView!.frame.width,
                               y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
-            littleTip = CGPoint(x: littleTipPoint.location.x * previewView!.frame.width,
+            littleTip = CGPoint(x: adjustedLittleTipX * previewView!.frame.width,
                                 y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
             wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
                                              y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
