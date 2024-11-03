@@ -18,7 +18,7 @@ class HandPose {
     private(set) var tipVectors: [Finger: CGPoint?] = [:]
     private(set) var extendedFingers: [Finger: Bool] = [:]
     private(set) var countExtended: Int = 0
-    private let confidenceThreshold: Float = 0.5
+    private let confidenceThreshold: Float = 0.8
     private let fingerThresholds: [Finger: Float] = [
         .thumb: 1.5,
         .index: 1.2,
