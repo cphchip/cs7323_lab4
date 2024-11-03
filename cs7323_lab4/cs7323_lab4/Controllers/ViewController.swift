@@ -161,7 +161,7 @@ class ViewController: UIViewController {
     var captureDeviceResolution: CGSize = CGSize()
     
     // Vision requests
-    private var detectionRequests: [VNDetectFaceRectanglesRequest]?
+//    private var detectionRequests: [VNDetectFaceRectanglesRequest]?
 //    private var detectionRequests: [VNDetectHumanHandPoseRequest]?
     private var trackingRequests: [VNTrackObjectRequest]?
     private var handPoseRequest = VNDetectHumanHandPoseRequest()
@@ -197,9 +197,6 @@ class ViewController: UIViewController {
         
         // setup video for high resolution, drop frames when busy, and front camera
         self.session = self.setupAVCaptureSession()
-        
-        // setup the vision objects for (1) detection and (2) tracking
-        self.prepareVisionRequest()
         
         // Start the capture session on a background thread
         DispatchQueue.global(qos: .userInitiated).async {
@@ -271,61 +268,6 @@ class ViewController: UIViewController {
     
     // MARK: Performing Vision Requests
     
-    /// - Tag: WriteCompletionHandler
-    fileprivate func prepareVisionRequest() {
-        
-        self.trackingRequests = []
-        
-        // create a detection request that processes an image and returns face features
-        // completion handler does not run immediately, it is run
-        // after a face is detected
-        let faceDetectionRequest:VNDetectFaceRectanglesRequest = VNDetectFaceRectanglesRequest(completionHandler: self.handDetectionCompletionHandler)
-        
-        // Save this detection request for later processing
-        self.detectionRequests = [faceDetectionRequest]
-        
-        // setup the tracking of a sequence of features from detection
-        self.sequenceRequestHandler = VNSequenceRequestHandler()
-        
-    }
-    
-    // define behavior for when we detect a face
-    func handDetectionCompletionHandler(request:VNRequest, error: Error?){
-        // any errors? If yes, show and try to keep going
-        if error != nil {
-            print("FaceDetection error: \(String(describing: error)).")
-        }
-        
-        // see if we can get any face features, this will fail if no faces detected
-        // try to save the face observations to a results vector
-        guard let handDetectionRequest = request as? VNDetectFaceRectanglesRequest,
-            let results = handDetectionRequest.results as? [VNFaceObservation] else {
-                return
-        }
-
-        if !results.isEmpty{
-            print("Initial Face found... setting up tracking.")
-        }
-        
-        // the remaining tracking only needs the results vector of face features
-        // so we can process it in the main queue (because we will us it to update UI)
-        DispatchQueue.main.async {
-            // Add the face features to the tracking list
-            for observation in results {
-                let faceTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
-//                let handTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
-                // the array starts empty, but this will constantly add to it
-                // since on the main queue, there are no race conditions
-                // everything is from a single thread
-                // once we add this, it kicks off tracking in another function
-                self.trackingRequests?.append(faceTrackingRequest)
-//                self.trackingRequest?.append(handTrackingRequest)
-                
-                // NOTE: if the initial face detection is actually not a face,
-                // then the app will continually mess up trying to perform tracking
-            }
-        }
-    }
     // MARK: AVCaptureVideoDataOutputSampleBufferDelegate
     /// - Tag: PerformRequests
     // Handle delegate method callback on receiving a sample buffer.
@@ -350,46 +292,11 @@ class ViewController: UIViewController {
         // get portrait orientation for UI
         let exifOrientation = self.exifOrientationForCurrentDeviceOrientation()
         
-        guard let requests = self.trackingRequests else {
-            print("Tracking request array not setup, aborting.")
-            return
-        }
-        
-        // check to see if the tracking request is empty (no face currently detected)
-        // if it is empty,
-        if requests.isEmpty{
-            // No tracking object detected, so perform initial detection
-            // the initial detection takes some time to perform
-            // so we special case it here
-            
-            self.performInitialDetection(pixelBuffer: pixelBuffer,
-                                        exifOrientation: exifOrientation,
-                                        requestHandlerOptions: requestHandlerOptions)
-            
-            return  // just perform the initial request
-        }
-        
-        // if tracking was not empty, it means we have detected a face very recently
-        // so we can process the sequence of tracking face features
-        self.performTracking(requests: requests,
-                             pixelBuffer: pixelBuffer,
-                             exifOrientation: exifOrientation)
-        // if there are no valid observations, then this will be empty
-        // the function above will empty out all the elements
-        // in our tracking if nothing is high confidence in the output
-        if let newTrackingRequests = self.trackingRequests{
-            if newTrackingRequests.isEmpty {
-                // Nothing was high enough confidence to track, just abort.
-                print("Face object lost, resetting detection...")
-                return
-            }
-        }
+        self.performInitialDetection(pixelBuffer: pixelBuffer,
+                                    exifOrientation: exifOrientation,
+                                    requestHandlerOptions: requestHandlerOptions)
     }
-    
-    
-    func checkFingersExtended(_ handPose: HandPose) {
-        
-    }
+
     
     // functionality to run the image detection on pixel buffer
     // This is an involved computation, so beware of running too often
@@ -454,10 +361,6 @@ class ViewController: UIViewController {
                 return
             }
             
-            //            // Ignore low confidence points.
-            //            guard thumbTipPoint.confidence > 0.3 && indexTipPoint.confidence > 0.3 else {
-            //                return
-            //            }
             
             // Determine if the current camera is front or back
             // If back Camera is used, invert the x coord's
@@ -501,17 +404,6 @@ class ViewController: UIViewController {
                               y: (1 - ringBasePoint.location.y) * previewView!.frame.height)
             littleBase = CGPoint(x: adjustedLittleBaseX * previewView!.frame.width,
                                 y: (1 - littleBasePoint.location.y) * previewView!.frame.height)
-            
-            
-//            print("Thumb: ", thumbTip)
-//            print("Index: ", indexTip)
-//            print("Middle: ", middleTip)
-//            print("Ring: ", ringTip)
-//            print("Little: ", littleTip)
-//            print("wrist: ", wristPoints)
-            
-            
-
             
             DispatchQueue.main.async {
                 self.thumbTipLayer.position = thumbTip ?? .zero
