@@ -9,6 +9,142 @@ import UIKit
 import AVKit
 import Vision
 
+class HandPose {
+    
+    private(set) var bases: [Finger: VNRecognizedPoint?] = [:]
+    private(set) var tips: [Finger: VNRecognizedPoint?] = [:]
+    private(set) var wrist: VNRecognizedPoint? = nil
+    private(set) var baseVectors: [Finger: CGPoint?] = [:]
+    private(set) var tipVectors: [Finger: CGPoint?] = [:]
+    private(set) var extendedFingers: [Finger: Bool] = [:]
+    private(set) var countExtended: Int = 0
+    private let confidenceThreshold: Float = 0.5
+    private let fingerThresholds: [Finger: Float] = [
+        .thumb: 1.5,
+        .index: 1.2,
+        .middle: 1.2,
+        .ring: 1.2,
+        .little: 1.2
+    ]
+    // dictionary from Finger to VNHumanHandPoseObservation.JointsGroupName
+    private let fingerMap: [Finger: (group: VNHumanHandPoseObservation.JointsGroupName, tip: VNHumanHandPoseObservation.JointName, base: VNHumanHandPoseObservation.JointName)] = [
+        .thumb: (.thumb, .thumbTip, .thumbMP),
+        .index: (.indexFinger, .indexTip, .indexMCP),
+        .middle: (.middleFinger, .middleTip, .middleMCP),
+        .ring: (.ringFinger, .ringTip, .ringMCP),
+        .little: (.littleFinger, .littleTip, .littleMCP)
+    ]
+    
+    init() {
+        for finger in Finger.allCases {
+            bases[finger] = nil
+            tips[finger] = nil
+            baseVectors[finger] = nil
+            tipVectors[finger] = nil
+        }
+    }
+    
+    func updatePose(with observation: VNHumanHandPoseObservation) {
+        getPoints(from: observation)
+        vectorize()
+        checkFingersExtended()
+        countFingersExtended()
+        print("# Extended fingers: \(countExtended)")
+    }
+    
+    private func getPoints(from observation: VNHumanHandPoseObservation) {
+        // get point for wrist
+        if let wristPoint = try? observation.recognizedPoint(.wrist),
+           wristPoint.confidence > confidenceThreshold {
+            wrist = wristPoint
+        } else {
+            wrist = nil
+        }
+        // get points for each finger
+        for finger in Finger.allCases {
+            if let fingerPoints = try? observation.recognizedPoints(fingerMap[finger]!.group),
+               let tipPoint = fingerPoints[fingerMap[finger]!.tip],
+               let basePoint = fingerPoints[fingerMap[finger]!.base],
+               tipPoint.confidence > confidenceThreshold, basePoint.confidence > confidenceThreshold {
+                tips[finger] = tipPoint
+                bases[finger] = basePoint
+            } else {
+                tips[finger] = nil
+                bases[finger] = nil
+            }
+            
+        }
+    }
+    
+    private func vectorize() {
+        guard let wrist = wrist else {
+            return
+        }
+        for finger in Finger.allCases {
+            if let tip = tips[finger], let base = bases[finger],
+               let tipLocation = tip?.location, let baseLocation = base?.location{
+                tipVectors[finger] = CGPoint(x: tipLocation.x - wrist.location.x, y: tipLocation.y - wrist.location.y)
+                baseVectors[finger] = CGPoint(x: baseLocation.x - wrist.location.x, y: baseLocation.y - wrist.location.y)
+            } else {
+                tipVectors[finger] = nil
+                baseVectors[finger] = nil
+            }
+        }
+    }
+    
+    private func countFingersExtended() {
+        countExtended = 0
+        for finger in Finger.allCases {
+            if extendedFingers[finger] == true {
+                countExtended += 1
+            }
+        }
+    }
+    
+    private func checkFingersExtended() {
+        for finger in Finger.allCases {
+            // project the tip vector onto the base vector
+            // if the projection is greater than the magnitude of the base vector by more than
+            // fingerThresholds[finger], then the finger is considered extended
+            if let tipVector = tipVectors[finger], let baseVector = baseVectors[finger],
+                let tipVX = tipVector?.x, let tipVY = tipVector?.y,
+                let baseVX = baseVector?.x, let baseVY = baseVector?.y,
+                let threshold = fingerThresholds[finger] {
+                // projection = (tipVector dot baseVector) / (baseVector dot baseVector)
+                let projection = Float((tipVX * baseVX + tipVY * baseVY) / (baseVX * baseVX + baseVY * baseVY))
+                
+//                let projection = Float((tipVector.x * baseVector.x + tipVector.y * baseVector.y) / (baseVector.x * baseVector.x + baseVector.y * baseVector.y))
+                let magnitude = Float(sqrt(baseVX * baseVX + baseVY * baseVY))
+//                let magnitude = Float(sqrt(baseVector.x * baseVector.x + baseVector.y * baseVector.y))
+                if projection > threshold {
+                    extendedFingers[finger] = true
+                    print("Finger \(finger) is extended")
+                } else {
+                    extendedFingers[finger] = false
+                }
+//                if finger == .index {
+//                    print("Index projection: \(projection), magnitude: \(magnitude), threshold: \(threshold)")
+//                    print("Index tip: \(String(describing: tipVector)), Index base: \(String(describing: baseVector))")
+//                    print("Index extended: \(extendedFingers[finger]!)")
+//                }
+            } else {
+                extendedFingers[finger] = false
+            }
+        }
+    }
+    
+}
+
+// integer enum for the different fingers to make it easier to access the points
+enum Finger: Int, CaseIterable {
+    case thumb = 0
+    case index = 1
+    case middle = 2
+    case ring = 3
+    case little = 4
+}
+
+
 class ViewController: UIViewController {
     
     // Main view for showing camera content.
@@ -29,6 +165,8 @@ class ViewController: UIViewController {
 //    private var detectionRequests: [VNDetectHumanHandPoseRequest]?
     private var trackingRequests: [VNTrackObjectRequest]?
     private var handPoseRequest = VNDetectHumanHandPoseRequest()
+    
+    private var handPose = HandPose()
     
     lazy var sequenceRequestHandler = VNSequenceRequestHandler()
     
@@ -63,9 +201,10 @@ class ViewController: UIViewController {
         // setup the vision objects for (1) detection and (2) tracking
         self.prepareVisionRequest()
         
-        // start the capture session and get processing a face!
-        self.session?.startRunning()
-        
+        // Start the capture session on a background thread
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.session?.startRunning()
+        }
         // Limit to one hand
         handPoseRequest.maximumHandCount = 1
         
@@ -140,7 +279,7 @@ class ViewController: UIViewController {
         // create a detection request that processes an image and returns face features
         // completion handler does not run immediately, it is run
         // after a face is detected
-        let faceDetectionRequest:VNDetectFaceRectanglesRequest = VNDetectFaceRectanglesRequest(completionHandler: self.faceDetectionCompletionHandler)
+        let faceDetectionRequest:VNDetectFaceRectanglesRequest = VNDetectFaceRectanglesRequest(completionHandler: self.handDetectionCompletionHandler)
         
         // Save this detection request for later processing
         self.detectionRequests = [faceDetectionRequest]
@@ -151,7 +290,7 @@ class ViewController: UIViewController {
     }
     
     // define behavior for when we detect a face
-    func faceDetectionCompletionHandler(request:VNRequest, error: Error?){
+    func handDetectionCompletionHandler(request:VNRequest, error: Error?){
         // any errors? If yes, show and try to keep going
         if error != nil {
             print("FaceDetection error: \(String(describing: error)).")
@@ -159,14 +298,11 @@ class ViewController: UIViewController {
         
         // see if we can get any face features, this will fail if no faces detected
         // try to save the face observations to a results vector
-        guard let faceDetectionRequest = request as? VNDetectFaceRectanglesRequest,
-            let results = faceDetectionRequest.results as? [VNFaceObservation] else {
+        guard let handDetectionRequest = request as? VNDetectFaceRectanglesRequest,
+            let results = handDetectionRequest.results as? [VNFaceObservation] else {
                 return
         }
-//        guard let handDetectionRequest = request as? VNDetectHumanHandPoseRequest,
-//              let results = handDetectionRequest.results as? [VNHumanObservation] else {
-//                return
-//        }
+
         if !results.isEmpty{
             print("Initial Face found... setting up tracking.")
         }
@@ -250,6 +386,11 @@ class ViewController: UIViewController {
         }
     }
     
+    
+    func checkFingersExtended(_ handPose: HandPose) {
+        
+    }
+    
     // functionality to run the image detection on pixel buffer
     // This is an involved computation, so beware of running too often
     func performInitialDetection(pixelBuffer:CVPixelBuffer, exifOrientation:CGImagePropertyOrientation, requestHandlerOptions:[VNImageOption: AnyObject]) {
@@ -280,6 +421,10 @@ class ViewController: UIViewController {
                 return
             }
             
+            // start hand pose update in background
+            DispatchQueue.global(qos: .userInitiated).async {
+                self.handPose.updatePose(with: observation)
+            }
             
             // Get points for thumb and index finger.
             let thumbPoints = try observation.recognizedPoints(.thumb)
@@ -358,12 +503,13 @@ class ViewController: UIViewController {
                                 y: (1 - littleBasePoint.location.y) * previewView!.frame.height)
             
             
-            print("Thumb: ", thumbTip)
-            print("Index: ", indexTip)
-            print("Middle: ", middleTip)
-            print("Ring: ", ringTip)
-            print("Little: ", littleTip)
-            print("wrist: ", wristPoints)
+//            print("Thumb: ", thumbTip)
+//            print("Index: ", indexTip)
+//            print("Middle: ", middleTip)
+//            print("Ring: ", ringTip)
+//            print("Little: ", littleTip)
+//            print("wrist: ", wristPoints)
+            
             
 
             
