@@ -40,6 +40,14 @@ class ViewController: UIViewController {
     private var littleTipLayer = CAShapeLayer()
     private var wristLayer = CAShapeLayer()
     
+    
+    private var thumbBaseLayer = CAShapeLayer()
+    private var indexBaseLayer = CAShapeLayer()
+    private var middleBaseLayer = CAShapeLayer()
+    private var ringBaseLayer = CAShapeLayer()
+    private var littleBaseLayer = CAShapeLayer()
+ 
+    
     private var boundingBoxLayer = CAShapeLayer()
 
 
@@ -63,11 +71,17 @@ class ViewController: UIViewController {
         
         // Configure CAShapeLayers
         setupFingertipLayers()
+
+        setupFingerBaseLayers()
+        
+        
+        //Setup Bounding Box Layer
+        setupBoundingBoxLayer()
     }
     
     
     private func setupFingertipLayers() {
-        // Configure layers for thumb and index finger tips
+        // Configure layers for finger tips
         [thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer, littleTipLayer, wristLayer].forEach { layer in
             layer.fillColor = UIColor.red.cgColor
             layer.strokeColor = UIColor.clear.cgColor
@@ -77,6 +91,28 @@ class ViewController: UIViewController {
             previewView?.layer.addSublayer(layer)
         }
     }
+    
+    private func setupFingerBaseLayers() {
+        // Configure layers for finger bases
+        [thumbBaseLayer, indexBaseLayer, middleBaseLayer, ringBaseLayer, littleBaseLayer].forEach { layer in
+            layer.fillColor = UIColor.blue.cgColor
+            layer.strokeColor = UIColor.clear.cgColor
+            layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10) // Circle size
+            layer.cornerRadius = 5 // Half of the width/height for a circle
+            layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
+            previewView?.layer.addSublayer(layer)
+        }
+    }
+    
+    private func setupBoundingBoxLayer() {
+      //Setup bounding box shape layer
+        boundingBoxLayer.strokeColor = UIColor.red.cgColor
+        boundingBoxLayer.fillColor = UIColor.clear.cgColor
+        boundingBoxLayer.lineWidth = 2.0
+        // Add the shape layer to the view
+        previewView?.layer.addSublayer(boundingBoxLayer)
+    }
+    
     
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -224,6 +260,15 @@ class ViewController: UIViewController {
         var littleTip: CGPoint?
         var wristPoint: CGPoint?
         
+        var thumbBase: CGPoint?
+        var indexBase: CGPoint?
+        var middleBase: CGPoint?
+        var ringBase: CGPoint?
+        var littleBase: CGPoint?
+        
+
+        
+        
         // create request
         let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
                                                         orientation: exifOrientation,
@@ -246,14 +291,20 @@ class ViewController: UIViewController {
             let wristPoints = try observation.recognizedPoint(.wrist)
             
             
-            // Look for tip points.
+            
+            // Look for tip and base points.
             guard let thumbTipPoint = thumbPoints[.thumbTip], thumbTipPoint.confidence > 0.5,
                   let indexTipPoint = indexFingerPoints[.indexTip], indexTipPoint.confidence > 0.5,
                   let middleTipPoint = middleFingerPoints[.middleTip], middleTipPoint.confidence > 0.5,
                   let ringTipPoint = ringFingerPoints[.ringTip], ringTipPoint.confidence > 0.5,
-                  let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.5
-                  //let wristPoint = wristPoint, wristPoint.confidence > 0.5
-                  //let wristPoints = wristPoint
+                  let littleTipPoint = littleFingerPoints[.littleTip], littleTipPoint.confidence > 0.5,
+                  
+                  let thumbBasePoint = thumbPoints[.thumbMP], thumbBasePoint.confidence > 0.5,
+                  let indexBasePoint = indexFingerPoints[.indexMCP], indexBasePoint.confidence > 0.5,
+                  let middleBasePoint = middleFingerPoints[.middleMCP], middleBasePoint.confidence > 0.5,
+                  let ringBasePoint = ringFingerPoints[.ringMCP], ringBasePoint.confidence > 0.5,
+                  let littleBasePoint = littleFingerPoints[.littleMCP], littleBasePoint.confidence > 0.5
+                    
             else {
                 return
             }
@@ -273,6 +324,12 @@ class ViewController: UIViewController {
             let adjustedRingTipX   =  isBackCamera ? (1 - ringTipPoint.location.x) : ringTipPoint.location.x
             let adjustedLittleTipX =  isBackCamera ? (1 - littleTipPoint.location.x) : littleTipPoint.location.x
             
+            let adjustedThumbBaseX  =  isBackCamera ? (1 - thumbBasePoint.location.x) : thumbBasePoint.location.x
+            let adjustedIndexBaseX  =  isBackCamera ? (1 - indexBasePoint.location.x) : indexBasePoint.location.x
+            let adjustedMiddleBaseX =  isBackCamera ? (1 - middleBasePoint.location.x) : middleBasePoint.location.x
+            let adjustedRingBaseX   =  isBackCamera ? (1 - ringBasePoint.location.x) : ringBasePoint.location.x
+            let adjustedLittleBaseX =  isBackCamera ? (1 - littleBasePoint.location.x) : littleBasePoint.location.x
+            
             
             // Convert points from Vision coordinates to AVFoundation coordinates.
             thumbTip = CGPoint(x: adjustedThumbTipX * previewView!.frame.width,
@@ -287,6 +344,19 @@ class ViewController: UIViewController {
                                 y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
             wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
                                              y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
+            
+            
+            thumbBase = CGPoint(x: adjustedThumbBaseX * previewView!.frame.width,
+                               y: (1 - thumbBasePoint.location.y) * previewView!.frame.height)
+            indexBase = CGPoint(x: adjustedIndexBaseX * previewView!.frame.width,
+                               y: (1 - indexBasePoint.location.y) * previewView!.frame.height)
+            middleBase = CGPoint(x: adjustedMiddleBaseX * previewView!.frame.width,
+                                y: (1 - middleBasePoint.location.y) * previewView!.frame.height)
+            ringBase = CGPoint(x: adjustedRingBaseX * previewView!.frame.width,
+                              y: (1 - ringBasePoint.location.y) * previewView!.frame.height)
+            littleBase = CGPoint(x: adjustedLittleBaseX * previewView!.frame.width,
+                                y: (1 - littleBasePoint.location.y) * previewView!.frame.height)
+            
             
             print("Thumb: ", thumbTip)
             print("Index: ", indexTip)
@@ -304,6 +374,12 @@ class ViewController: UIViewController {
                 self.ringTipLayer.position = ringTip ?? .zero
                 self.littleTipLayer.position = littleTip ?? .zero
                 self.wristLayer.position = wristPoint ?? .zero
+                
+                self.thumbBaseLayer.position = thumbBase ?? .zero
+                self.indexBaseLayer.position = indexBase ?? .zero
+                self.middleBaseLayer.position = middleBase ?? .zero
+                self.ringBaseLayer.position = ringBase ?? .zero
+                self.littleBaseLayer.position = littleBase ?? .zero
                 
                 //Get Bounding box
                 // Get all points in the hand
@@ -325,6 +401,8 @@ class ViewController: UIViewController {
                     // Use `boundingRect` as the hand's bounding box
                     self.drawBoundingBox(boundingBox: boundingRect)
                 }
+                
+                //self.drawJointIndicators(observation: observation)
             }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
@@ -334,8 +412,12 @@ class ViewController: UIViewController {
     // Wilma added draw bounding box
     func drawBoundingBox(boundingBox: CGRect) {
         // Convert bounding rectangle to the view's coordinate system
-        let viewWidth = view.bounds.width
-        let viewHeight = view.bounds.height
+        //let viewWidth = view.bounds.width
+        let viewWidth = previewView!.frame.width
+        
+        //let viewHeight = view.bounds.height
+        let viewHeight = previewView!.frame.height
+        
         let scaledRect = CGRect(
             x: boundingBox.origin.x * viewWidth,
             y: (1 - boundingBox.origin.y) * viewHeight - boundingBox.height * viewHeight,
@@ -343,17 +425,11 @@ class ViewController: UIViewController {
             height: boundingBox.height * viewHeight
         )
        
-        // Create a shape layer
+        // Setup bounding box shape layer
         boundingBoxLayer.path = UIBezierPath(rect: scaledRect).cgPath
-        boundingBoxLayer.strokeColor = UIColor.red.cgColor
-        boundingBoxLayer.fillColor = UIColor.clear.cgColor
-        boundingBoxLayer.lineWidth = 2.0
-        
-        // Add the shape layer to the view
-        view.layer.addSublayer(boundingBoxLayer)
     }
     // end Wilma added draw bounding box
-    
+
     
     // this function performs all the tracking of the face sequence
     func performTracking(requests:[VNTrackObjectRequest],
