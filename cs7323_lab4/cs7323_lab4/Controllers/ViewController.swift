@@ -222,13 +222,19 @@ class ViewController: UIViewController {
     private func setupFingertipLayers() {
         // Configure layers for finger tips
         [thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer, littleTipLayer, wristLayer].forEach { layer in
-            layer.fillColor = UIColor.red.cgColor
+            if layer == wristLayer{
+                layer.fillColor = UIColor.yellow.cgColor
+            }
+            else{
+                layer.fillColor = UIColor.red.cgColor
+            }
             layer.strokeColor = UIColor.clear.cgColor
-            layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10) // Circle size
-            layer.cornerRadius = 5 // Half of the width/height for a circle
+            layer.bounds = CGRect(x: 0, y: 0, width: 16, height: 16) // Circle size
+            layer.cornerRadius = 8 // Half of the width/height for a circle
             layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
             previewView?.layer.addSublayer(layer)
         }
+
     }
     
     private func setupFingerBaseLayers() {
@@ -547,15 +553,13 @@ class ViewController: UIViewController {
                     // Use `boundingRect` as the hand's bounding box
                     self.drawBoundingBox(boundingBox: boundingRect)
                 }
-                
-                //self.drawJointIndicators(observation: observation)
+                self.MarkExtFingers()
             }
         } catch let error as NSError {
             NSLog("Failed to perform FaceRectangleRequest: %@", error)
         }
     }
     
-    // Wilma added draw bounding box
     func drawBoundingBox(boundingBox: CGRect) {
         // Convert bounding rectangle to the view's coordinate system
         //let viewWidth = view.bounds.width
@@ -574,8 +578,51 @@ class ViewController: UIViewController {
         // Setup bounding box shape layer
         boundingBoxLayer.path = UIBezierPath(rect: scaledRect).cgPath
     }
-    // end Wilma added draw bounding box
-
+    
+    func MarkExtFingers(){
+        for finger in Finger.allCases {
+                if finger == .thumb {
+                    if handPose.extendedFingers[finger] == true {
+                        self.thumbTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.thumbTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .index {
+                    if handPose.extendedFingers[finger] == true {
+                        self.indexTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.indexTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .middle {
+                    if handPose.extendedFingers[finger] == true {
+                        self.middleTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.middleTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .ring {
+                    if handPose.extendedFingers[finger] == true {
+                        self.ringTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.ringTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .little{
+                    if handPose.extendedFingers[finger] == true {
+                        self.littleTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.littleTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+        }
+    }
     
     // this function performs all the tracking of the face sequence
     func performTracking(requests:[VNTrackObjectRequest],
