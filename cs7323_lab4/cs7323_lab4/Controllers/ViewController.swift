@@ -9,140 +9,6 @@ import UIKit
 import AVKit
 import Vision
 
-class HandPose {
-    
-    private(set) var bases: [Finger: VNRecognizedPoint?] = [:]
-    private(set) var tips: [Finger: VNRecognizedPoint?] = [:]
-    private(set) var wrist: VNRecognizedPoint? = nil
-    private(set) var baseVectors: [Finger: CGPoint?] = [:]
-    private(set) var tipVectors: [Finger: CGPoint?] = [:]
-    private(set) var extendedFingers: [Finger: Bool] = [:]
-    private(set) var countExtended: Int = 0
-    private let confidenceThreshold: Float = 0.5
-    private let fingerThresholds: [Finger: Float] = [
-        .thumb: 1.5,
-        .index: 1.2,
-        .middle: 1.2,
-        .ring: 1.2,
-        .little: 1.2
-    ]
-    // dictionary from Finger to VNHumanHandPoseObservation.JointsGroupName
-    private let fingerMap: [Finger: (group: VNHumanHandPoseObservation.JointsGroupName, tip: VNHumanHandPoseObservation.JointName, base: VNHumanHandPoseObservation.JointName)] = [
-        .thumb: (.thumb, .thumbTip, .thumbMP),
-        .index: (.indexFinger, .indexTip, .indexMCP),
-        .middle: (.middleFinger, .middleTip, .middleMCP),
-        .ring: (.ringFinger, .ringTip, .ringMCP),
-        .little: (.littleFinger, .littleTip, .littleMCP)
-    ]
-    
-    init() {
-        for finger in Finger.allCases {
-            bases[finger] = nil
-            tips[finger] = nil
-            baseVectors[finger] = nil
-            tipVectors[finger] = nil
-        }
-    }
-    
-    func updatePose(with observation: VNHumanHandPoseObservation) {
-        getPoints(from: observation)
-        vectorize()
-        checkFingersExtended()
-        countFingersExtended()
-        print("# Extended fingers: \(countExtended)")
-    }
-    
-    private func getPoints(from observation: VNHumanHandPoseObservation) {
-        // get point for wrist
-        if let wristPoint = try? observation.recognizedPoint(.wrist),
-           wristPoint.confidence > confidenceThreshold {
-            wrist = wristPoint
-        } else {
-            wrist = nil
-        }
-        // get points for each finger
-        for finger in Finger.allCases {
-            if let fingerPoints = try? observation.recognizedPoints(fingerMap[finger]!.group),
-               let tipPoint = fingerPoints[fingerMap[finger]!.tip],
-               let basePoint = fingerPoints[fingerMap[finger]!.base],
-               tipPoint.confidence > confidenceThreshold, basePoint.confidence > confidenceThreshold {
-                tips[finger] = tipPoint
-                bases[finger] = basePoint
-            } else {
-                tips[finger] = nil
-                bases[finger] = nil
-            }
-            
-        }
-    }
-    
-    private func vectorize() {
-        guard let wrist = wrist else {
-            return
-        }
-        for finger in Finger.allCases {
-            if let tip = tips[finger], let base = bases[finger],
-               let tipLocation = tip?.location, let baseLocation = base?.location{
-                tipVectors[finger] = CGPoint(x: tipLocation.x - wrist.location.x, y: tipLocation.y - wrist.location.y)
-                baseVectors[finger] = CGPoint(x: baseLocation.x - wrist.location.x, y: baseLocation.y - wrist.location.y)
-            } else {
-                tipVectors[finger] = nil
-                baseVectors[finger] = nil
-            }
-        }
-    }
-    
-    private func countFingersExtended() {
-        countExtended = 0
-        for finger in Finger.allCases {
-            if extendedFingers[finger] == true {
-                countExtended += 1
-            }
-        }
-    }
-    
-    private func checkFingersExtended() {
-        for finger in Finger.allCases {
-            // project the tip vector onto the base vector
-            // if the projection is greater than the magnitude of the base vector by more than
-            // fingerThresholds[finger], then the finger is considered extended
-            if let tipVector = tipVectors[finger], let baseVector = baseVectors[finger],
-                let tipVX = tipVector?.x, let tipVY = tipVector?.y,
-                let baseVX = baseVector?.x, let baseVY = baseVector?.y,
-                let threshold = fingerThresholds[finger] {
-                // projection = (tipVector dot baseVector) / (baseVector dot baseVector)
-                let projection = Float((tipVX * baseVX + tipVY * baseVY) / (baseVX * baseVX + baseVY * baseVY))
-                
-//                let projection = Float((tipVector.x * baseVector.x + tipVector.y * baseVector.y) / (baseVector.x * baseVector.x + baseVector.y * baseVector.y))
-                let magnitude = Float(sqrt(baseVX * baseVX + baseVY * baseVY))
-//                let magnitude = Float(sqrt(baseVector.x * baseVector.x + baseVector.y * baseVector.y))
-                if projection > threshold {
-                    extendedFingers[finger] = true
-                    print("Finger \(finger) is extended")
-                } else {
-                    extendedFingers[finger] = false
-                }
-//                if finger == .index {
-//                    print("Index projection: \(projection), magnitude: \(magnitude), threshold: \(threshold)")
-//                    print("Index tip: \(String(describing: tipVector)), Index base: \(String(describing: baseVector))")
-//                    print("Index extended: \(extendedFingers[finger]!)")
-//                }
-            } else {
-                extendedFingers[finger] = false
-            }
-        }
-    }
-    
-}
-
-// integer enum for the different fingers to make it easier to access the points
-enum Finger: Int, CaseIterable {
-    case thumb = 0
-    case index = 1
-    case middle = 2
-    case ring = 3
-    case little = 4
-}
 
 
 class ViewController: UIViewController {
@@ -161,9 +27,6 @@ class ViewController: UIViewController {
     var captureDeviceResolution: CGSize = CGSize()
     
     // Vision requests
-//    private var detectionRequests: [VNDetectFaceRectanglesRequest]?
-//    private var detectionRequests: [VNDetectHumanHandPoseRequest]?
-    private var trackingRequests: [VNTrackObjectRequest]?
     private var handPoseRequest = VNDetectHumanHandPoseRequest()
     
     private var handPose = HandPose()
@@ -250,9 +113,9 @@ class ViewController: UIViewController {
     }
     
     
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-    }
+//    override func didReceiveMemoryWarning() {
+//        super.didReceiveMemoryWarning()
+//    }
     
     // Ensure that the interface stays locked in Portrait.
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -267,6 +130,14 @@ class ViewController: UIViewController {
     
     
     // MARK: Performing Vision Requests
+    
+    // Convert Vision coordinates to `previewLayer` coordinates.
+    func mapToPreviewLayer(point: CGPoint) -> CGPoint? {
+        guard let previewLayer = previewLayer else { return nil }
+        let newPoint = CGPoint(x: 1 - point.y, y: point.x)
+        var convertedPoint = previewLayer.layerPointConverted(fromCaptureDevicePoint: newPoint)
+        return convertedPoint
+    }
     
     // MARK: AVCaptureVideoDataOutputSampleBufferDelegate
     /// - Tag: PerformRequests
@@ -328,11 +199,9 @@ class ViewController: UIViewController {
                 return
             }
             
-            // start hand pose update in background
-            DispatchQueue.global(qos: .userInitiated).async {
-                self.handPose.updatePose(with: observation)
-            }
-            
+            // start hand pose update
+            self.handPose.updatePose(with: observation)
+
             // Get points for thumb and index finger.
             let thumbPoints = try observation.recognizedPoints(.thumb)
             let indexFingerPoints = try observation.recognizedPoints(.indexFinger)
@@ -360,8 +229,7 @@ class ViewController: UIViewController {
             else {
                 return
             }
-            
-            
+
             // Determine if the current camera is front or back
             // If back Camera is used, invert the x coord's
             let isBackCamera = (captureDevice?.position == .back)
@@ -380,30 +248,19 @@ class ViewController: UIViewController {
             
             
             // Convert points from Vision coordinates to AVFoundation coordinates.
-            thumbTip = CGPoint(x: adjustedThumbTipX * previewView!.frame.width,
-                               y: (1 - thumbTipPoint.location.y) * previewView!.frame.height)
-            indexTip = CGPoint(x: adjustedIndexTipX * previewView!.frame.width,
-                               y: (1 - indexTipPoint.location.y) * previewView!.frame.height)
-            middleTip = CGPoint(x: adjustedMiddleTipX * previewView!.frame.width,
-                                y: (1 - middleTipPoint.location.y) * previewView!.frame.height)
-            ringTip = CGPoint(x: adjustedRingTipX * previewView!.frame.width,
-                              y: (1 - ringTipPoint.location.y) * previewView!.frame.height)
-            littleTip = CGPoint(x: adjustedLittleTipX * previewView!.frame.width,
-                                y: (1 - littleTipPoint.location.y) * previewView!.frame.height)
-            wristPoint = CGPoint(x: (wristPoints.location.x) * previewView!.frame.width,
-                                             y: (1 - (wristPoints.location.y)) * previewView!.frame.height)
+            thumbTip = mapToPreviewLayer(point: thumbTipPoint.location)
+            indexTip = mapToPreviewLayer(point: indexTipPoint.location)
+            middleTip = mapToPreviewLayer(point: middleTipPoint.location)
+            ringTip = mapToPreviewLayer(point: ringTipPoint.location)
+            littleTip = mapToPreviewLayer(point: littleTipPoint.location)
+            wristPoint = mapToPreviewLayer(point: wristPoints.location)
             
             
-            thumbBase = CGPoint(x: adjustedThumbBaseX * previewView!.frame.width,
-                               y: (1 - thumbBasePoint.location.y) * previewView!.frame.height)
-            indexBase = CGPoint(x: adjustedIndexBaseX * previewView!.frame.width,
-                               y: (1 - indexBasePoint.location.y) * previewView!.frame.height)
-            middleBase = CGPoint(x: adjustedMiddleBaseX * previewView!.frame.width,
-                                y: (1 - middleBasePoint.location.y) * previewView!.frame.height)
-            ringBase = CGPoint(x: adjustedRingBaseX * previewView!.frame.width,
-                              y: (1 - ringBasePoint.location.y) * previewView!.frame.height)
-            littleBase = CGPoint(x: adjustedLittleBaseX * previewView!.frame.width,
-                                y: (1 - littleBasePoint.location.y) * previewView!.frame.height)
+            thumbBase = mapToPreviewLayer(point: thumbBasePoint.location)
+            indexBase = mapToPreviewLayer(point: indexBasePoint.location)
+            middleBase = mapToPreviewLayer(point: middleBasePoint.location)
+            ringBase = mapToPreviewLayer(point: ringBasePoint.location)
+            littleBase = mapToPreviewLayer(point: littleBasePoint.location)
             
             DispatchQueue.main.async {
                 self.thumbTipLayer.position = thumbTip ?? .zero
@@ -443,11 +300,11 @@ class ViewController: UIViewController {
                 //self.drawJointIndicators(observation: observation)
             }
         } catch let error as NSError {
-            NSLog("Failed to perform FaceRectangleRequest: %@", error)
+            NSLog("Failed to perform HandPoseRequest: %@", error)
         }
     }
     
-    // Wilma added draw bounding box
+    /// Draw the bounding box around the hand
     func drawBoundingBox(boundingBox: CGRect) {
         // Convert bounding rectangle to the view's coordinate system
         //let viewWidth = view.bounds.width
@@ -466,60 +323,6 @@ class ViewController: UIViewController {
         // Setup bounding box shape layer
         boundingBoxLayer.path = UIBezierPath(rect: scaledRect).cgPath
     }
-    // end Wilma added draw bounding box
-
-    
-    // this function performs all the tracking of the face sequence
-    func performTracking(requests:[VNTrackObjectRequest],
-                         pixelBuffer:CVPixelBuffer, exifOrientation:CGImagePropertyOrientation)
-    {
-        do {
-            // perform tracking on the pixel buffer, which is
-            // less computational than fully detecting a face
-            // if a face was not correct initially, this tracking
-            //   will also be not great... but it is fast!
-            try self.sequenceRequestHandler.perform(requests,
-                                                    on: pixelBuffer,
-                                                    orientation: exifOrientation)
-        } catch let error as NSError {
-            NSLog("Failed to perform SequenceRequest: %@", error)
-        }
-        
-        // if there are any tracking results, let's process them here
-        
-        // Setup the next round of tracking.
-        var newTrackingRequests = [VNTrackObjectRequest]()
-        for trackingRequest in requests {
-            
-            // any valid results in the request?
-            // if so, grab the first request
-            if let results = trackingRequest.results,
-               let observation = results[0] as? VNDetectedObjectObservation {
-                
-                
-                // is this tracking request of high confidence?
-                // If it is, then we should add it to processing buffer
-                // the threshold is arbitrary. You can adjust to you liking
-                if !trackingRequest.isLastFrame {
-                    if observation.confidence < 0.3 {
-
-                        // once below thresh, make it last frame
-                        // this will stop the processing of tracker
-                        trackingRequest.isLastFrame = true
-                    }
-                    // add to running tally of high confidence observations
-                    newTrackingRequests.append(trackingRequest)
-                }
-                
-            }
-            
-        }
-        self.trackingRequests = newTrackingRequests
-        
-        
-    }
-      
-    
 }
 
 
@@ -643,7 +446,7 @@ extension ViewController:AVCaptureVideoDataOutputSampleBufferDelegate{
         
         // Create a serial dispatch queue used for the sample buffer delegate as well as when a still image is captured.
         // A serial dispatch queue must be used to guarantee that video frames will be delivered in order.
-        let videoDataOutputQueue = DispatchQueue(label: "com.example.apple-samplecode.VisionFaceTrack")
+        let videoDataOutputQueue = DispatchQueue(label: "VideoDataOutputQueue")
         videoDataOutput.setSampleBufferDelegate(self, queue: videoDataOutputQueue)
         
         if captureSession.canAddOutput(videoDataOutput) {
@@ -693,6 +496,3 @@ extension ViewController:AVCaptureVideoDataOutputSampleBufferDelegate{
         }
     }
 }
-
-
-
