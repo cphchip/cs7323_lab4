@@ -39,14 +39,14 @@ class HandPose {
         didSet {
             if countExtended != oldValue {
                 delegate?.fingerCountChanged(count: countExtended)
-                print("Fingers extended: \(countExtended)")
+//                print("Fingers extended: \(countExtended)")
             }
         }
     }
     
     private let confidenceThreshold: Float = 0.5
     private let fingerThresholds: [Finger: Float] = [
-        .thumb: 1.5,
+        .thumb: 1.4,
         .index: 1.2,
         .middle: 1.2,
         .ring: 1.2,
@@ -66,6 +66,18 @@ class HandPose {
         vectorize()
         checkFingersExtended()
         countExtendedFingers()
+    }
+    
+    func clear() {
+        for finger in Finger.allCases {
+            bases[finger] = nil
+            tips[finger] = nil
+            baseVectors[finger] = nil
+            tipVectors[finger] = nil
+            extendedFingers[finger] = false
+        }
+        wrist = nil
+        countExtended = 0
     }
     
     private func countExtendedFingers() {

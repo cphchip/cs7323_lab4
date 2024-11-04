@@ -33,9 +33,13 @@ class ViewController: UIViewController {
     lazy var sequenceRequestHandler = VNSequenceRequestHandler()
 
     // Define CAShapeLayer properties for fingertip markers
-    private var fingerTipLayers: [CAShapeLayer] = (0..<5).map { _ in CAShapeLayer() }
+    private var fingerTipLayers: [CAShapeLayer] = (0..<5).map { _ in
+        CAShapeLayer()
+    }
     private var wristLayer: CAShapeLayer = CAShapeLayer()
-    private var fingerBaseLayers: [CAShapeLayer] = (0..<5).map { _ in CAShapeLayer() }
+    private var fingerBaseLayers: [CAShapeLayer] = (0..<5).map { _ in
+        CAShapeLayer()
+    }
 
     private var boundingBoxLayer = CAShapeLayer()
 
@@ -71,17 +75,22 @@ class ViewController: UIViewController {
         layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
         previewView?.layer.addSublayer(layer)
     }
-    
+
     private func setupFingerLayers() {
         // Configure layers for finger tips
-        setupLayer(layer: wristLayer, fill: UIColor.yellow.withAlphaComponent(0.5).cgColor)
-        
+        setupLayer(
+            layer: wristLayer,
+            fill: UIColor.yellow.withAlphaComponent(0.5).cgColor)
+
         fingerTipLayers.forEach { layer in
-            setupLayer(layer: layer, fill: UIColor.red.withAlphaComponent(0.5).cgColor)
+            setupLayer(
+                layer: layer, fill: UIColor.red.withAlphaComponent(0.5).cgColor)
         }
-        
+
         fingerBaseLayers.forEach { layer in
-            setupLayer(layer: layer, fill: UIColor.blue.withAlphaComponent(0.5).cgColor)
+            setupLayer(
+                layer: layer, fill: UIColor.blue.withAlphaComponent(0.5).cgColor
+            )
         }
     }
 
@@ -153,7 +162,7 @@ class ViewController: UIViewController {
         // get portrait orientation for UI
         let exifOrientation = self.exifOrientationForCurrentDeviceOrientation()
 
-        self.performInitialDetection(
+        self.performDetection(
             pixelBuffer: pixelBuffer,
             exifOrientation: exifOrientation,
             requestHandlerOptions: requestHandlerOptions)
@@ -161,10 +170,10 @@ class ViewController: UIViewController {
 
     // functionality to run the image detection on pixel buffer
     // This is an involved computation, so beware of running too often
-    func performInitialDetection(
-        pixelBuffer: CVPixelBuffer, exifOrientation: CGImagePropertyOrientation,
-        requestHandlerOptions: [VNImageOption: AnyObject]
-    ) {
+    func performDetection(
+        pixelBuffer: CVPixelBuffer,
+        exifOrientation: CGImagePropertyOrientation,
+        requestHandlerOptions: [VNImageOption: AnyObject] ) {
 
         // create request
         let imageRequestHandler = VNImageRequestHandler(
@@ -174,42 +183,57 @@ class ViewController: UIViewController {
 
         do {
             try imageRequestHandler.perform([handPoseRequest])
-            guard let observation = handPoseRequest.results?.first else {
-                return
-            }
+            if let observation = handPoseRequest.results?.first {
 
-            // start hand pose update
-            self.handPose.updatePose(with: observation)
-
-            DispatchQueue.main.async {
-                for finger in Finger.allCases {
-                    if let fingerTipPoint = self.handPose.tips[finger],
-                       let fingerTipLocation = fingerTipPoint?.location
-                    {
-                        self.fingerTipLayers[finger.rawValue].position = self.mapToPreviewLayer(point: fingerTipLocation) ?? .zero
-                    }
-                    if let fingerBasePoint = self.handPose.bases[finger],
-                       let fingerBaseLocation = fingerBasePoint?.location
-                    {
-                        self.fingerBaseLayers[finger.rawValue].position = self.mapToPreviewLayer(point: fingerBaseLocation) ?? .zero
-                    }
-                    
-                }
-                
-                if let wristPoint = self.handPose.wrist
-                {
-                    self.wristLayer.position = self.mapToPreviewLayer(point: wristPoint.location) ?? .zero
-                }
-                
+                // start hand pose update
+                self.handPose.updatePose(with: observation)
                 self.drawBoundingBox(observation: observation)
-
-                self.MarkExtFingers()
+                
+            } else {
+                handPose.clear()
+                clearBoundingBox()
             }
+            self.drawFingerPoints()
         } catch let error as NSError {
             NSLog("Failed to perform HandPoseRequest: %@", error)
         }
     }
 
+    private func drawFingerPoints() {
+        DispatchQueue.main.async {
+            for finger in Finger.allCases {
+                if let fingerTipPoint = self.handPose.tips[finger],
+                   let fingerTipLocation = fingerTipPoint?.location
+                {
+                    self.fingerTipLayers[finger.rawValue].position =
+                    self.mapToPreviewLayer(point: fingerTipLocation)
+                    ?? .zero
+                } else {
+                    self.fingerTipLayers[finger.rawValue].position = .zero
+                }
+                if let fingerBasePoint = self.handPose.bases[finger],
+                   let fingerBaseLocation = fingerBasePoint?.location
+                {
+                    self.fingerBaseLayers[finger.rawValue].position =
+                    self.mapToPreviewLayer(point: fingerBaseLocation)
+                    ?? .zero
+                } else {
+                    self.fingerBaseLayers[finger.rawValue].position = .zero
+                }
+                
+            }
+            
+            if let wristPoint = self.handPose.wrist {
+                self.wristLayer.position =
+                self.mapToPreviewLayer(point: wristPoint.location)
+                ?? .zero
+            } else {
+                self.wristLayer.position = .zero
+            }
+            self.MarkExtFingers()
+        }
+    }
+    
     /// Draw the bounding box around the hand
     func drawBoundingBox(observation: VNHumanHandPoseObservation) {
 
@@ -250,19 +274,27 @@ class ViewController: UIViewController {
                 x: minX - xPadding, y: minY - yPadding,
                 width: maxX - minX + 2 * xPadding,
                 height: maxY - minY + 2 * yPadding)
-
-            // Setup bounding box shape layer
-            boundingBoxLayer.path = UIBezierPath(rect: boundingRect).cgPath
+            DispatchQueue.main.async {
+                // Setup bounding box shape layer
+                self.boundingBoxLayer.path = UIBezierPath(rect: boundingRect).cgPath
+            }
         }
     }
+    
+    private func clearBoundingBox() {
+        DispatchQueue.main.async {
+            self.boundingBoxLayer.path = nil
+        }
+    }
+    
     func MarkExtFingers() {
         for finger in Finger.allCases {
             if handPose.extendedFingers[finger] ?? false {
                 fingerTipLayers[finger.rawValue].fillColor =
-                UIColor.green.withAlphaComponent(0.5).cgColor
+                    UIColor.green.withAlphaComponent(0.5).cgColor
             } else {
                 fingerTipLayers[finger.rawValue].fillColor =
-                UIColor.red.withAlphaComponent(0.5).cgColor
+                    UIColor.red.withAlphaComponent(0.5).cgColor
             }
         }
     }
