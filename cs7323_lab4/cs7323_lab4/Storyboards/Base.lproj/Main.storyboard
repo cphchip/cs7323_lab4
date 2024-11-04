@@ -18,14 +18,45 @@
                         <subviews>
                             <view contentMode="center" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="1XA-ga-hsm" userLabel="Preview View">
                                 <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                 <color key="backgroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            </view>
+                            <view contentMode="center" translatesAutoresizingMaskIntoConstraints="NO" id="1Vp-2x-0Z0">
+                                <rect key="frame" x="120.00000000000001" y="724" width="153.33333333333337" height="52"/>
+                                <subviews>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Count:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="piZ-wc-zyd">
+                                        <rect key="frame" x="22" y="11" width="71.666666666666671" height="30"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="25"/>
+                                        <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="0" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="SE2-xv-J0H">
+                                        <rect key="frame" x="115.66666666666666" y="11" width="15.666666666666657" height="30"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="25"/>
+                                        <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+                                </subviews>
+                                <color key="backgroundColor" red="0.0" green="0.47843137250000001" blue="1" alpha="0.34002483443708609" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstItem="SE2-xv-J0H" firstAttribute="leading" secondItem="piZ-wc-zyd" secondAttribute="trailing" constant="22" id="77d-MD-QYc"/>
+                                    <constraint firstAttribute="trailing" secondItem="SE2-xv-J0H" secondAttribute="trailing" constant="22" id="RF1-1U-nrx"/>
+                                    <constraint firstItem="piZ-wc-zyd" firstAttribute="leading" secondItem="1Vp-2x-0Z0" secondAttribute="leading" constant="22" id="bym-4A-UJb"/>
+                                    <constraint firstItem="SE2-xv-J0H" firstAttribute="centerY" secondItem="1Vp-2x-0Z0" secondAttribute="centerY" id="nL9-FL-iom"/>
+                                    <constraint firstItem="piZ-wc-zyd" firstAttribute="centerY" secondItem="1Vp-2x-0Z0" secondAttribute="centerY" id="pUc-91-bxP"/>
+                                    <constraint firstItem="piZ-wc-zyd" firstAttribute="top" secondItem="1Vp-2x-0Z0" secondAttribute="top" constant="11" id="z2Z-7k-HX2"/>
+                                </constraints>
                             </view>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                        <constraints>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="1Vp-2x-0Z0" secondAttribute="bottom" constant="42" id="Pxc-Zc-ePr"/>
+                            <constraint firstItem="1Vp-2x-0Z0" firstAttribute="centerX" secondItem="8bC-Xf-vdC" secondAttribute="centerX" id="Zfo-pz-YQh"/>
+                        </constraints>
                     </view>
                     <connections>
+                        <outlet property="countLabel" destination="SE2-xv-J0H" id="P7D-Ox-umH"/>
                         <outlet property="previewView" destination="1XA-ga-hsm" id="Cyu-w0-2Tg"/>
                     </connections>
                 </viewController>

@@ -9,14 +9,13 @@ import UIKit
 import AVKit
 import Vision
 
-protocol HandPoseDelegate: AnyObject {
-    func fingerCountChanged(count: Int)
-}
+
 
 class ViewController: UIViewController {
     
     // Main view for showing camera content.
     @IBOutlet weak var previewView: UIView?
+    @IBOutlet weak var countLabel: UILabel?
     
     // AVCapture variables to hold sequence data
     var session: AVCaptureSession?
@@ -59,6 +58,8 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        handPose.delegate = self
         
         // setup video for high resolution, drop frames when busy, and front camera
         self.session = self.setupAVCaptureSession()
@@ -495,6 +496,14 @@ extension ViewController:AVCaptureVideoDataOutputSampleBufferDelegate{
         if let previewLayer = self.previewLayer {
             previewLayer.removeFromSuperlayer()
             self.previewLayer = nil
+        }
+    }
+}
+
+extension ViewController: HandPoseDelegate {
+    func fingerCountChanged(count: Int) {
+        DispatchQueue.main.async {
+            self.countLabel?.text = "\(count)"
         }
     }
 }

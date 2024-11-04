@@ -18,7 +18,13 @@ enum Finger: Int, CaseIterable {
     case little = 4
 }
 
+protocol HandPoseDelegate: AnyObject {
+    func fingerCountChanged(count: Int)
+}
+
 class HandPose {
+    
+    weak var delegate: HandPoseDelegate?
     
     private(set) var bases: [Finger: VNRecognizedPoint?] = Dictionary(uniqueKeysWithValues: Finger.allCases.map { ($0, nil) })
     private(set) var tips: [Finger: VNRecognizedPoint?] = Dictionary(uniqueKeysWithValues: Finger.allCases.map { ($0, nil) })
@@ -32,6 +38,7 @@ class HandPose {
         // check if value is different from previous value
         didSet {
             if countExtended != oldValue {
+                delegate?.fingerCountChanged(count: countExtended)
                 print("Fingers extended: \(countExtended)")
             }
         }
