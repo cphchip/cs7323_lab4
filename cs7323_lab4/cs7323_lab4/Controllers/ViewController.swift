@@ -9,7 +9,9 @@ import UIKit
 import AVKit
 import Vision
 
-
+protocol HandPoseDelegate: AnyObject {
+    func fingerCountChanged(count: Int)
+}
 
 class ViewController: UIViewController {
     
