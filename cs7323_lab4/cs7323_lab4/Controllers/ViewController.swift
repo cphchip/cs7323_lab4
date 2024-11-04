@@ -33,18 +33,9 @@ class ViewController: UIViewController {
     lazy var sequenceRequestHandler = VNSequenceRequestHandler()
 
     // Define CAShapeLayer properties for fingertip markers
-    private var thumbTipLayer = CAShapeLayer()
-    private var indexTipLayer = CAShapeLayer()
-    private var middleTipLayer = CAShapeLayer()
-    private var ringTipLayer = CAShapeLayer()
-    private var littleTipLayer = CAShapeLayer()
-    private var wristLayer = CAShapeLayer()
-
-    private var thumbBaseLayer = CAShapeLayer()
-    private var indexBaseLayer = CAShapeLayer()
-    private var middleBaseLayer = CAShapeLayer()
-    private var ringBaseLayer = CAShapeLayer()
-    private var littleBaseLayer = CAShapeLayer()
+    private var fingerTipLayers: [CAShapeLayer] = (0..<5).map { _ in CAShapeLayer() }
+    private var wristLayer: CAShapeLayer = CAShapeLayer()
+    private var fingerBaseLayers: [CAShapeLayer] = (0..<5).map { _ in CAShapeLayer() }
 
     private var boundingBoxLayer = CAShapeLayer()
 
@@ -66,46 +57,31 @@ class ViewController: UIViewController {
         handPoseRequest.maximumHandCount = 1
 
         // Configure CAShapeLayers
-        setupFingertipLayers()
-
-        setupFingerBaseLayers()
+        setupFingerLayers()
 
         //Setup Bounding Box Layer
         setupBoundingBoxLayer()
     }
 
-    private func setupFingertipLayers() {
-        // Configure layers for finger tips
-        [
-            thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer,
-            littleTipLayer, wristLayer,
-        ].forEach { layer in
-            if layer == wristLayer{
-                layer.fillColor = UIColor.systemYellow.withAlphaComponent(0.5).cgColor
-            }
-            else{
-                layer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
-            }
-            layer.strokeColor = UIColor.clear.cgColor
-            layer.bounds = CGRect(x: 0, y: 0, width: 14, height: 14) // Circle size
-            layer.cornerRadius = 7 // Half of the width/height for a circle
-            layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
-            previewView?.layer.addSublayer(layer)
-        }
+    private func setupLayer(layer: CAShapeLayer, fill: CGColor) {
+        layer.fillColor = fill
+        layer.strokeColor = UIColor.clear.cgColor
+        layer.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)  // Circle size
+        layer.cornerRadius = 7  // Half of the width/height for a circle
+        layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
+        previewView?.layer.addSublayer(layer)
     }
-
-    private func setupFingerBaseLayers() {
-        // Configure layers for finger bases
-        [
-            thumbBaseLayer, indexBaseLayer, middleBaseLayer, ringBaseLayer,
-            littleBaseLayer,
-        ].forEach { layer in
-            layer.fillColor = UIColor.blue.withAlphaComponent(0.5).cgColor
-            layer.strokeColor = UIColor.clear.cgColor
-            layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10)  // Circle size
-            layer.cornerRadius = 5  // Half of the width/height for a circle
-            layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
-            previewView?.layer.addSublayer(layer)
+    
+    private func setupFingerLayers() {
+        // Configure layers for finger tips
+        setupLayer(layer: wristLayer, fill: UIColor.yellow.withAlphaComponent(0.5).cgColor)
+        
+        fingerTipLayers.forEach { layer in
+            setupLayer(layer: layer, fill: UIColor.red.withAlphaComponent(0.5).cgColor)
+        }
+        
+        fingerBaseLayers.forEach { layer in
+            setupLayer(layer: layer, fill: UIColor.blue.withAlphaComponent(0.5).cgColor)
         }
     }
 
@@ -138,7 +114,7 @@ class ViewController: UIViewController {
     func mapToPreviewLayer(point: CGPoint) -> CGPoint? {
         guard let previewLayer = previewLayer else { return nil }
         let newPoint = CGPoint(x: 1 - point.y, y: point.x)
-        var convertedPoint = previewLayer.layerPointConverted(
+        let convertedPoint = previewLayer.layerPointConverted(
             fromCaptureDevicePoint: newPoint)
         return convertedPoint
     }
@@ -189,18 +165,6 @@ class ViewController: UIViewController {
         pixelBuffer: CVPixelBuffer, exifOrientation: CGImagePropertyOrientation,
         requestHandlerOptions: [VNImageOption: AnyObject]
     ) {
-        var thumbTip: CGPoint?
-        var indexTip: CGPoint?
-        var middleTip: CGPoint?
-        var ringTip: CGPoint?
-        var littleTip: CGPoint?
-        var wristPoint: CGPoint?
-
-        var thumbBase: CGPoint?
-        var indexBase: CGPoint?
-        var middleBase: CGPoint?
-        var ringBase: CGPoint?
-        var littleBase: CGPoint?
 
         // create request
         let imageRequestHandler = VNImageRequestHandler(
@@ -217,73 +181,26 @@ class ViewController: UIViewController {
             // start hand pose update
             self.handPose.updatePose(with: observation)
 
-            // Get points for thumb and index finger.
-            let thumbPoints = try observation.recognizedPoints(.thumb)
-            let indexFingerPoints = try observation.recognizedPoints(
-                .indexFinger)
-            let middleFingerPoints = try observation.recognizedPoints(
-                .middleFinger)
-            let ringFingerPoints = try observation.recognizedPoints(.ringFinger)
-            let littleFingerPoints = try observation.recognizedPoints(
-                .littleFinger)
-            //let wristPoints = try observation.recognizedPoints(.all)[.wrist]
-            let wristPoints = try observation.recognizedPoint(.wrist)
-
-            // Look for tip and base points.
-            guard let thumbTipPoint = thumbPoints[.thumbTip],
-                thumbTipPoint.confidence > 0.5,
-                let indexTipPoint = indexFingerPoints[.indexTip],
-                indexTipPoint.confidence > 0.5,
-                let middleTipPoint = middleFingerPoints[.middleTip],
-                middleTipPoint.confidence > 0.5,
-                let ringTipPoint = ringFingerPoints[.ringTip],
-                ringTipPoint.confidence > 0.5,
-                let littleTipPoint = littleFingerPoints[.littleTip],
-                littleTipPoint.confidence > 0.5,
-
-                let thumbBasePoint = thumbPoints[.thumbMP],
-                thumbBasePoint.confidence > 0.5,
-                let indexBasePoint = indexFingerPoints[.indexMCP],
-                indexBasePoint.confidence > 0.5,
-                let middleBasePoint = middleFingerPoints[.middleMCP],
-                middleBasePoint.confidence > 0.5,
-                let ringBasePoint = ringFingerPoints[.ringMCP],
-                ringBasePoint.confidence > 0.5,
-                let littleBasePoint = littleFingerPoints[.littleMCP],
-                littleBasePoint.confidence > 0.5
-
-            else {
-                return
-            }
-
-            // Convert points from Vision coordinates to AVFoundation coordinates.
-            thumbTip = mapToPreviewLayer(point: thumbTipPoint.location)
-            indexTip = mapToPreviewLayer(point: indexTipPoint.location)
-            middleTip = mapToPreviewLayer(point: middleTipPoint.location)
-            ringTip = mapToPreviewLayer(point: ringTipPoint.location)
-            littleTip = mapToPreviewLayer(point: littleTipPoint.location)
-            wristPoint = mapToPreviewLayer(point: wristPoints.location)
-
-            thumbBase = mapToPreviewLayer(point: thumbBasePoint.location)
-            indexBase = mapToPreviewLayer(point: indexBasePoint.location)
-            middleBase = mapToPreviewLayer(point: middleBasePoint.location)
-            ringBase = mapToPreviewLayer(point: ringBasePoint.location)
-            littleBase = mapToPreviewLayer(point: littleBasePoint.location)
-
             DispatchQueue.main.async {
-                self.thumbTipLayer.position = thumbTip ?? .zero
-                self.indexTipLayer.position = indexTip ?? .zero
-                self.middleTipLayer.position = middleTip ?? .zero
-                self.ringTipLayer.position = ringTip ?? .zero
-                self.littleTipLayer.position = littleTip ?? .zero
-                self.wristLayer.position = wristPoint ?? .zero
-
-                self.thumbBaseLayer.position = thumbBase ?? .zero
-                self.indexBaseLayer.position = indexBase ?? .zero
-                self.middleBaseLayer.position = middleBase ?? .zero
-                self.ringBaseLayer.position = ringBase ?? .zero
-                self.littleBaseLayer.position = littleBase ?? .zero
-
+                for finger in Finger.allCases {
+                    if let fingerTipPoint = self.handPose.tips[finger],
+                       let fingerTipLocation = fingerTipPoint?.location
+                    {
+                        self.fingerTipLayers[finger.rawValue].position = self.mapToPreviewLayer(point: fingerTipLocation) ?? .zero
+                    }
+                    if let fingerBasePoint = self.handPose.bases[finger],
+                       let fingerBaseLocation = fingerBasePoint?.location
+                    {
+                        self.fingerBaseLayers[finger.rawValue].position = self.mapToPreviewLayer(point: fingerBaseLocation) ?? .zero
+                    }
+                    
+                }
+                
+                if let wristPoint = self.handPose.wrist
+                {
+                    self.wristLayer.position = self.mapToPreviewLayer(point: wristPoint.location) ?? .zero
+                }
+                
                 self.drawBoundingBox(observation: observation)
 
                 self.MarkExtFingers()
@@ -330,55 +247,23 @@ class ViewController: UIViewController {
             let xPadding = 0.1 * (maxX - minX)
             let yPadding = 0.1 * (maxY - minY)
             let boundingRect = CGRect(
-                x: minX - xPadding, y: minY - yPadding, width: maxX - minX + 2 * xPadding,
+                x: minX - xPadding, y: minY - yPadding,
+                width: maxX - minX + 2 * xPadding,
                 height: maxY - minY + 2 * yPadding)
 
             // Setup bounding box shape layer
             boundingBoxLayer.path = UIBezierPath(rect: boundingRect).cgPath
         }
     }
-    func MarkExtFingers(){
+    func MarkExtFingers() {
         for finger in Finger.allCases {
-                if finger == .thumb {
-                    if handPose.extendedFingers[finger] == true {
-                        self.thumbTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
-                    }
-                    else {
-                        self.thumbTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
-                    }
-                }
-                else if finger == .index {
-                    if handPose.extendedFingers[finger] == true {
-                        self.indexTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
-                    }
-                    else {
-                        self.indexTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
-                    }
-                }
-                else if finger == .middle {
-                    if handPose.extendedFingers[finger] == true {
-                        self.middleTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
-                    }
-                    else {
-                        self.middleTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
-                    }
-                }
-                else if finger == .ring {
-                    if handPose.extendedFingers[finger] == true {
-                        self.ringTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
-                    }
-                    else {
-                        self.ringTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
-                    }
-                }
-                else if finger == .little{
-                    if handPose.extendedFingers[finger] == true {
-                        self.littleTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
-                    }
-                    else {
-                        self.littleTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
-                    }
-                }
+            if handPose.extendedFingers[finger] ?? false {
+                fingerTipLayers[finger.rawValue].fillColor =
+                UIColor.green.withAlphaComponent(0.5).cgColor
+            } else {
+                fingerTipLayers[finger.rawValue].fillColor =
+                UIColor.red.withAlphaComponent(0.5).cgColor
+            }
         }
     }
 }
