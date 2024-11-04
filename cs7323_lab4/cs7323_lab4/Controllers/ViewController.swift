@@ -223,14 +223,14 @@ class ViewController: UIViewController {
         // Configure layers for finger tips
         [thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer, littleTipLayer, wristLayer].forEach { layer in
             if layer == wristLayer{
-                layer.fillColor = UIColor.yellow.cgColor
+                layer.fillColor = UIColor.systemYellow.withAlphaComponent(0.5).cgColor
             }
             else{
-                layer.fillColor = UIColor.red.cgColor
+                layer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
             }
             layer.strokeColor = UIColor.clear.cgColor
-            layer.bounds = CGRect(x: 0, y: 0, width: 16, height: 16) // Circle size
-            layer.cornerRadius = 8 // Half of the width/height for a circle
+            layer.bounds = CGRect(x: 0, y: 0, width: 14, height: 14) // Circle size
+            layer.cornerRadius = 7 // Half of the width/height for a circle
             layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
             previewView?.layer.addSublayer(layer)
         }
@@ -240,7 +240,7 @@ class ViewController: UIViewController {
     private func setupFingerBaseLayers() {
         // Configure layers for finger bases
         [thumbBaseLayer, indexBaseLayer, middleBaseLayer, ringBaseLayer, littleBaseLayer].forEach { layer in
-            layer.fillColor = UIColor.blue.cgColor
+            layer.fillColor = UIColor.blue.withAlphaComponent(0.5).cgColor
             layer.strokeColor = UIColor.clear.cgColor
             layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10) // Circle size
             layer.cornerRadius = 5 // Half of the width/height for a circle
@@ -251,7 +251,7 @@ class ViewController: UIViewController {
     
     private func setupBoundingBoxLayer() {
       //Setup bounding box shape layer
-        boundingBoxLayer.strokeColor = UIColor.red.cgColor
+        boundingBoxLayer.strokeColor = UIColor.red.withAlphaComponent(0.5).cgColor
         boundingBoxLayer.fillColor = UIColor.clear.cgColor
         boundingBoxLayer.lineWidth = 2.0
         // Add the shape layer to the view
