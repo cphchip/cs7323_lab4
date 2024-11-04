@@ -327,9 +327,11 @@ class ViewController: UIViewController {
             let minY = yCoordinates.min(),
             let maxY = yCoordinates.max()
         {
+            let xOffset = 0.1 * (maxX - minX)
+            let yOffset = 0.1 * (maxY - minY)
             let boundingRect = CGRect(
-                x: minX, y: minY, width: maxX - minX,
-                height: maxY - minY)
+                x: minX - xOffset, y: minY - yOffset, width: maxX - minX + 2 * xOffset,
+                height: maxY - minY + 2 * yOffset)
 
             // Setup bounding box shape layer
             boundingBoxLayer.path = UIBezierPath(rect: boundingRect).cgPath
