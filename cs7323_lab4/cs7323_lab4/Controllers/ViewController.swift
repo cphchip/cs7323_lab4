@@ -279,33 +279,7 @@ class ViewController: UIViewController {
                 self.ringBaseLayer.position = ringBase ?? .zero
                 self.littleBaseLayer.position = littleBase ?? .zero
 
-                //Get Bounding box
-                // Get all points in the hand
-                guard let allPoints = try? observation.recognizedPoints(.all)
-                else {
-                    print(
-                        "Error getting allPoints in obervation.recognizedPoints(.all)"
-                    )
-                    return
-                }
-
-                //Calculate bounding rectangle
-                // Extract x coord and y coord from all points.
-                let xCoordinates = allPoints.values.map { $0.location.x }
-                let yCoordinates = allPoints.values.map { $0.location.y }
-
-                // Find min and max x and y to create a bounding rectangle
-                if let minX = xCoordinates.min(),
-                    let maxX = xCoordinates.max(),
-                    let minY = yCoordinates.min(),
-                    let maxY = yCoordinates.max()
-                {
-                    let boundingRect = CGRect(
-                        x: minX, y: minY, width: maxX - minX,
-                        height: maxY - minY)
-                    // Use `boundingRect` as the hand's bounding box
-                    self.drawBoundingBox(boundingBox: boundingRect)
-                }
+                self.drawBoundingBox(observation: observation)
 
                 //self.drawJointIndicators(observation: observation)
             }
@@ -315,24 +289,46 @@ class ViewController: UIViewController {
     }
 
     /// Draw the bounding box around the hand
-    func drawBoundingBox(boundingBox: CGRect) {
-        // Convert bounding rectangle to the view's coordinate system
-        //let viewWidth = view.bounds.width
-        let viewWidth = previewView!.frame.width
+    func drawBoundingBox(observation: VNHumanHandPoseObservation) {
 
-        //let viewHeight = view.bounds.height
-        let viewHeight = previewView!.frame.height
+        //Get Bounding box
+        // Get all points in the hand
+        guard let allPoints = try? observation.recognizedPoints(.all)
+        else {
+            print(
+                "Error getting allPoints in obervation.recognizedPoints(.all)"
+            )
+            return
+        }
 
-        let scaledRect = CGRect(
-            x: boundingBox.origin.x * viewWidth,
-            y: (1 - boundingBox.origin.y) * viewHeight - boundingBox.height
-                * viewHeight,
-            width: boundingBox.width * viewWidth,
-            height: boundingBox.height * viewHeight
-        )
+        let mappedPoints = allPoints.values.map {
+            self.mapToPreviewLayer(point: $0.location)
+        }
+        guard !mappedPoints.isEmpty else {
+            print(
+                "Error mapping points to preview layer"
+            )
+            return
+        }
 
-        // Setup bounding box shape layer
-        boundingBoxLayer.path = UIBezierPath(rect: scaledRect).cgPath
+        //Calculate bounding rectangle
+        // Extract x coord and y coord from all points.
+        let xCoordinates = mappedPoints.compactMap { $0?.x }
+        let yCoordinates = mappedPoints.compactMap { $0?.y }
+
+        // Find min and max x and y to create a bounding rectangle
+        if let minX = xCoordinates.min(),
+            let maxX = xCoordinates.max(),
+            let minY = yCoordinates.min(),
+            let maxY = yCoordinates.max()
+        {
+            let boundingRect = CGRect(
+                x: minX, y: minY, width: maxX - minX,
+                height: maxY - minY)
+
+            // Setup bounding box shape layer
+            boundingBoxLayer.path = UIBezierPath(rect: boundingRect).cgPath
+        }
     }
 }
 
