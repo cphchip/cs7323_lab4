@@ -80,10 +80,15 @@ class ViewController: UIViewController {
             thumbTipLayer, indexTipLayer, middleTipLayer, ringTipLayer,
             littleTipLayer, wristLayer,
         ].forEach { layer in
-            layer.fillColor = UIColor.red.cgColor
+            if layer == wristLayer{
+                layer.fillColor = UIColor.systemYellow.withAlphaComponent(0.5).cgColor
+            }
+            else{
+                layer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+            }
             layer.strokeColor = UIColor.clear.cgColor
-            layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10)  // Circle size
-            layer.cornerRadius = 5  // Half of the width/height for a circle
+            layer.bounds = CGRect(x: 0, y: 0, width: 14, height: 14) // Circle size
+            layer.cornerRadius = 7 // Half of the width/height for a circle
             layer.path = UIBezierPath(ovalIn: layer.bounds).cgPath
             previewView?.layer.addSublayer(layer)
         }
@@ -95,7 +100,7 @@ class ViewController: UIViewController {
             thumbBaseLayer, indexBaseLayer, middleBaseLayer, ringBaseLayer,
             littleBaseLayer,
         ].forEach { layer in
-            layer.fillColor = UIColor.blue.cgColor
+            layer.fillColor = UIColor.blue.withAlphaComponent(0.5).cgColor
             layer.strokeColor = UIColor.clear.cgColor
             layer.bounds = CGRect(x: 0, y: 0, width: 10, height: 10)  // Circle size
             layer.cornerRadius = 5  // Half of the width/height for a circle
@@ -281,7 +286,7 @@ class ViewController: UIViewController {
 
                 self.drawBoundingBox(observation: observation)
 
-                //self.drawJointIndicators(observation: observation)
+                self.MarkExtFingers()
             }
         } catch let error as NSError {
             NSLog("Failed to perform HandPoseRequest: %@", error)
@@ -328,6 +333,50 @@ class ViewController: UIViewController {
 
             // Setup bounding box shape layer
             boundingBoxLayer.path = UIBezierPath(rect: boundingRect).cgPath
+        }
+    }
+    func MarkExtFingers(){
+        for finger in Finger.allCases {
+                if finger == .thumb {
+                    if handPose.extendedFingers[finger] == true {
+                        self.thumbTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.thumbTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .index {
+                    if handPose.extendedFingers[finger] == true {
+                        self.indexTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.indexTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .middle {
+                    if handPose.extendedFingers[finger] == true {
+                        self.middleTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.middleTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .ring {
+                    if handPose.extendedFingers[finger] == true {
+                        self.ringTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.ringTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
+                else if finger == .little{
+                    if handPose.extendedFingers[finger] == true {
+                        self.littleTipLayer.fillColor = UIColor.green.withAlphaComponent(0.5).cgColor
+                    }
+                    else {
+                        self.littleTipLayer.fillColor = UIColor.red.withAlphaComponent(0.5).cgColor
+                    }
+                }
         }
     }
 }
